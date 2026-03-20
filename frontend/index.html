@@ -193,9 +193,7 @@
 
   <!-- ═══ EDIT MODAL ═══ -->
   <div x-show="editDlg.open"
-       x-transition:enter="transition ease-out duration-150"
-       x-transition:enter-start="opacity-0 scale-95"
-       x-transition:enter-end="opacity-100 scale-100"
+       x-transition.opacity.scale.duration.150ms
        @keydown.escape.window="editDlg.open = false"
        class="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
        style="display:none">
@@ -232,9 +230,7 @@
 
   <!-- ═══ EXPORT MODAL ═══ -->
   <div x-show="exportDlg.open"
-       x-transition:enter="transition ease-out duration-150"
-       x-transition:enter-start="opacity-0 scale-95"
-       x-transition:enter-end="opacity-100 scale-100"
+       x-transition.opacity.scale.duration.150ms
        @keydown.escape.window="exportDlg.open = false"
        class="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
        style="display:none">
