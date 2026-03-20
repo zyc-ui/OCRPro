@@ -1,0 +1,427 @@
+/* main.js — Alpine.js App 组件 */
+
+/* OCR 结果现在通过 CustomEvent 'ocr-result' 传递，由 body 上的 @ocr-result.window 接收 */
+
+function App() {
+  return {
+
+    /* ── 配置（来自 Python） ─────────────────────────── */
+    companyOptions: [],
+    flDisplay:      [],
+    colWidths:      {},
+
+    /* ── UI 状态 ─────────────────────────────────────── */
+    activeTab:    'query',
+    lang:         'zh',
+    isScanning:   false,
+    isQuerying:   false,
+    _ocrAppend:   false,
+
+    /* ── 数据 ────────────────────────────────────────── */
+    company:         '',
+    companyColLabel: '',
+    productItems:    [],
+    queryResults:    [],
+    codesText:       '未识别到商品代码',
+    selectedRowIdx:  -1,
+
+    /* ── 列显示 ──────────────────────────────────────── */
+    colVisibility: {},
+    infoColNames:  [],   /* FL_DISPLAY 0-24，供复选框渲染 */
+
+    /* ── 价目表 ──────────────────────────────────────── */
+    priceSearch:      '',
+    priceStats:       '',
+    rowLines:         3,
+    _plLoadedFor:     null,
+    priceListCallback: null,
+
+    /* ── 全局搜索 ─────────────────────────────────────── */
+    globalKeyword: '',
+    globalStats:   '在所有数据表中搜索关键词',
+
+    /* ── 弹窗 ────────────────────────────────────────── */
+    editDlg: {
+      open: false, rowIndex: -1,
+      item_no: '', code: '', desc: '', qty: '', unit: '',
+    },
+    exportDlg: { open: false },
+
+    /* ── 标签页 ──────────────────────────────────────── */
+    tabs: [
+      { id: 'query',     label: '价格查询' },
+      { id: 'pricelist', label: '价目表'   },
+      { id: 'global',    label: '全局搜索' },
+    ],
+
+    /* ══════════════════════════════════════════════════
+       初始化
+    ══════════════════════════════════════════════════ */
+    async init() {
+      window.appState = this;
+      await this._waitBridge();
+
+      const cfg = await window.pywebview.api.get_config();
+      this.companyOptions = cfg.company_options;
+      this.flDisplay      = cfg.fl_display;
+      this.colWidths      = cfg.col_widths;
+
+      /* 列显示：信息列 0-24 + 通用价格列 22-24 */
+      const names = {};
+      cfg.fl_display.slice(0, 25).forEach(col => { names[col] = true; });
+      this.colVisibility = names;
+      this.infoColNames  = cfg.fl_display.slice(0, 22);
+
+      if (!cfg.db_ok) {
+        alert('⚠️ 数据库中缺少 FullList 表，请点击 FullListUpdate 导入数据');
+      }
+
+      initQueryGrid(this);
+      initPriceListGrid(this);
+
+      /* 切换标签页时按需加载价目表并 resize */
+      this.$watch('activeTab', async tab => {
+        if (tab === 'pricelist') {
+          await this._loadPriceList();
+          resizeGrid(this.priceListGridApi);
+        }
+        if (tab === 'query') resizeGrid(this.queryGridApi);
+      });
+    },
+
+    _waitBridge() {
+      return new Promise(resolve => {
+        if (window.pywebview?.api) { resolve(); return; }
+        window.addEventListener('pywebviewready', resolve, { once: true });
+      });
+    },
+
+    /* ══════════════════════════════════════════════════
+       标签页
+    ══════════════════════════════════════════════════ */
+    switchTab(id) { this.activeTab = id; },
+
+    /* ══════════════════════════════════════════════════
+       公司
+    ══════════════════════════════════════════════════ */
+    onCompanyChange() {
+      const COMPANY_LIST = ['SINWA SGP','SSM 7SEA','Seven Seas','Wrist Far East',
+                             'Anchor Marine','RMS Marine','Fuji Trading','Con Lash'];
+      this.companyColLabel = COMPANY_LIST.includes(this.company)
+        ? this.company : 'High / Medium Price';
+      this._plLoadedFor = null;
+      if (this.queryResults.length) refreshQueryCols(this);
+    },
+
+    /* ══════════════════════════════════════════════════
+       OCR
+    ══════════════════════════════════════════════════ */
+    async startOCR(append) {
+      this.isScanning = true;
+      this._ocrAppend = append;
+      const ok = await window.pywebview.api.start_ocr();
+      if (!ok) {
+        alert('❌ Tesseract 未找到，请检查 ocr_engine.py 中的路径配置');
+        this.isScanning = false;
+      }
+    },
+
+    _handleOCRResult(items) {
+  console.log('[OCR] _handleOCRResult 收到', items?.length, '条', items);
+  this.isScanning = false;
+  if (!items?.length) {
+    this.codesText = '未识别到商品代码';
+    return;
+  }
+  const valid = items.filter(i => i.code);
+  console.log('[OCR] 有效商品数:', valid.length);
+  if (!valid.length) {
+    this.codesText = '识别到结果但无商品代码，请重试';
+    return;
+  }
+  this.productItems = this._ocrAppend
+    ? [...this.productItems, ...valid]
+    : valid;
+  this.codesText = this.productItems
+    .map(i => i.desc ? `${i.code}: ${i.desc}` : i.code)
+    .join('  |  ');
+  console.log('[OCR] productItems 已更新，数量:', this.productItems.length);
+},
+
+    /* ══════════════════════════════════════════════════
+       查询价格
+    ══════════════════════════════════════════════════ */
+    async queryPrices() {
+  if (!this.productItems.length) {
+    alert('请先使用 OCR 识别商品代码');
+    return;
+  }
+  if (!this.company) {
+    alert('请先在左上角选择公司（选择 Other 则使用默认价格列）');
+    return;
+  }
+  console.log('[Query] 开始查询', this.productItems.length, '个商品，公司:', this.company);
+  this.isQuerying = true;
+  try {
+    if (!window.pywebview?.api) {
+      throw new Error('pywebview 桥接未就绪，请重启程序');
+    }
+    const res = await window.pywebview.api.query_prices(
+      this.productItems, this.company
+    );
+    console.log('[Query] 返回结果数量:', res?.length, '第一条:', res?.[0]);
+    if (!Array.isArray(res) || res.length === 0) {
+      alert('查询完成但未返回数据，请检查数据库是否已通过 FullListUpdate 导入');
+      return;
+    }
+    this.queryResults = res;
+    const ok = updateQueryGrid(res);
+    if (!ok) {
+      alert('表格未能初始化，请尝试切换到"价目表"标签再切回来，或重启程序');
+    }
+  } catch (e) {
+    console.error('[Query] 出错:', e);
+    alert('查询出错: ' + String(e));
+  } finally {
+    this.isQuerying = false;
+  }
+},
+
+    /* ══════════════════════════════════════════════════
+       列显示
+    ══════════════════════════════════════════════════ */
+    toggleCol(col, visible) {
+      this.colVisibility[col] = visible;
+      refreshQueryCols(this);
+    },
+
+    /* ══════════════════════════════════════════════════
+       行管理
+    ══════════════════════════════════════════════════ */
+    addBlankRow() {
+      const blank = { 'Item NO.': '', '商品代码': '双击选择',
+                      '客户描述': '', '数量': '', 'UOM': '', '价格': '' };
+      this.flDisplay.forEach(n => { blank[n] = ''; });
+      this.queryResults.push(blank);
+      updateQueryGrid(this.queryResults);
+    },
+
+    removeSelectedRow() {
+      if (this.selectedRowIdx < 0) { alert('请先单击选择要删除的行'); return; }
+      if (!confirm('确定删除选中行？')) return;
+      this.queryResults.splice(this.selectedRowIdx, 1);
+      this.selectedRowIdx = -1;
+      updateQueryGrid(this.queryResults);
+    },
+
+    /* ══════════════════════════════════════════════════
+       价目表
+    ══════════════════════════════════════════════════ */
+    async _loadPriceList() {
+      if (this._plLoadedFor === (this.company || '')) return;
+      this.priceStats = '加载中…';
+      try {
+        const d = await window.pywebview.api.get_price_list(this.company || '');
+        updatePriceListGrid(d.cols, d.rows, this.colWidths);
+        this._plLoadedFor = this.company || '';
+        this.priceStats = `共 ${d.rows.length} 条`;
+      } catch (e) {
+        this.priceStats = '加载失败: ' + e;
+      }
+    },
+
+    onPriceSearch() {
+      const raw = this.priceSearch.trim();
+      if (!raw) { this.clearPriceSearch(); return; }
+      const kws = raw.split(/[,;\s，；]+/).map(k => k.trim().toUpperCase()).filter(Boolean);
+      const n = searchPriceList(kws);
+      this.priceStats = n ? `找到 ${n} 条匹配` : `未找到含 "${raw}" 的结果`;
+    },
+
+    clearPriceSearch() {
+      this.priceSearch = '';
+      searchPriceList([]);
+      this.priceStats = this._plLoadedFor !== null ? '' : '';
+    },
+
+    changeRowLines(delta) {
+      this.rowLines = Math.max(1, Math.min(10, this.rowLines + delta));
+      setPriceListRowHeight(this.rowLines);
+    },
+
+    /* 双击查询行 → 跳价目表 + 定位 */
+    async openPriceListForRow(rowIdx, rowData) {
+      this.selectedRowIdx = rowIdx;
+      this.activeTab = 'pricelist';
+      await this._loadPriceList();
+
+      this.priceListCallback = async selected => {
+        await this._applyPriceListRow(rowIdx, rowData, selected);
+        this.activeTab = 'query';
+      };
+
+      const kw = (rowData['U8代码'] || rowData['商品代码'] || '').replace('未找到','').trim();
+      if (kw) setTimeout(() => locatePriceList(kw), 120);
+    },
+
+    async _applyPriceListRow(rowIdx, old, sel) {
+      const u8   = (sel['U8代码']   || '').trim();
+      const impa = (sel['IMPA代码'] || '').trim();
+      const code = u8 || impa || old['商品代码'];
+
+      if (!u8 && !impa) {
+        /* 无代码：直填 */
+        const rebuilt = { ...old, ...sel,
+          '商品代码': old['商品代码'],
+          '客户描述': old['客户描述'],
+          '数量':     old['数量'] };
+        this.queryResults[rowIdx] = rebuilt;
+        updateQueryGrid(this.queryResults);
+        return;
+      }
+      try {
+        const res = await window.pywebview.api.query_single(
+          code, old['客户描述'], old['数量'], old['Item NO.'], old['UOM'], this.company
+        );
+        res['商品代码'] = old['商品代码'];
+        res['客户描述'] = old['客户描述'];
+        res['数量']     = old['数量'];
+        this.queryResults[rowIdx] = res;
+        updateQueryGrid(this.queryResults);
+      } catch (e) { alert('重新查询失败: ' + e); }
+    },
+
+    /* ══════════════════════════════════════════════════
+       编辑弹窗
+    ══════════════════════════════════════════════════ */
+    openEditDialog(idx, data) {
+      this.editDlg = {
+        open: true, rowIndex: idx,
+        item_no: data['Item NO.'] || '',
+        code:    data['商品代码']  || '',
+        desc:    data['客户描述']  || '',
+        qty:     data['数量']      || '',
+        unit:    data['UOM']       || '',
+      };
+    },
+
+    saveEdit() {
+      const { rowIndex: i, item_no, code, desc, qty, unit } = this.editDlg;
+      if (i < 0 || i >= this.queryResults.length) return;
+      Object.assign(this.queryResults[i], {
+        'Item NO.': item_no, '商品代码': code,
+        '客户描述': desc, '数量': qty, 'UOM': unit,
+      });
+      updateQueryGrid(this.queryResults);
+      this.editDlg.open = false;
+    },
+
+    async matchEdit() {
+      const { rowIndex: i, item_no, code, desc, qty, unit } = this.editDlg;
+      if (!code)          { alert('商品代码为空，无法查询'); return; }
+      if (!this.company)  { alert('请先选择公司');           return; }
+      this.editDlg.open = false;
+      try {
+        const res = await window.pywebview.api.query_single(
+          code, desc, qty, item_no, unit, this.company
+        );
+        this.queryResults[i] = res;
+        updateQueryGrid(this.queryResults);
+      } catch (e) { alert('查询失败: ' + e); }
+    },
+
+    /* ══════════════════════════════════════════════════
+       全局搜索
+    ══════════════════════════════════════════════════ */
+    async doGlobalSearch() {
+      const kw = this.globalKeyword.trim();
+      if (!kw) return;
+      this.globalStats = '搜索中…';
+      const cont = document.getElementById('globalResults');
+      cont.innerHTML = '';
+      try {
+        const res = await window.pywebview.api.global_search(kw);
+        const tables = Object.keys(res);
+        if (!tables.length) { this.globalStats = `未找到含 "${kw}" 的结果`; return; }
+        let total = 0;
+        tables.forEach(tbl => {
+          const { columns, rows } = res[tbl];
+          total += rows.length;
+          const sec = document.createElement('div');
+          sec.className = 'mb-6';
+          sec.innerHTML = `<p class="text-xs font-semibold text-slate-600 mb-1 px-1">${tbl} (${rows.length}条)</p>`;
+          const t = document.createElement('table');
+          t.className = 'w-full text-xs border-collapse';
+          const re = new RegExp(kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+          const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+          t.innerHTML = `<thead><tr>${columns.map(c => `<th class="border border-slate-200 px-2 py-1 bg-slate-100 text-left font-medium whitespace-nowrap">${esc(c)}</th>`).join('')}</tr></thead>
+            <tbody>${rows.map((row,ri) =>
+              `<tr class="${ri%2?'bg-slate-50':'bg-white'}">${row.map(cell => {
+                const s = esc(String(cell||''));
+                return `<td class="border border-slate-200 px-2 py-1">${s.replace(re, m=>`<mark class="bg-yellow-200">${m}</mark>`)}</td>`;
+              }).join('')}</tr>`
+            ).join('')}</tbody>`;
+          sec.appendChild(t);
+          cont.appendChild(sec);
+        });
+        this.globalStats = `找到 ${total} 条，分布在 ${tables.length} 个表`;
+      } catch (e) { this.globalStats = '搜索失败: ' + e; }
+    },
+
+    /* ══════════════════════════════════════════════════
+       导出
+    ══════════════════════════════════════════════════ */
+    openExportDialog() { this.exportDlg.open = true; },
+
+    async doExport(type) {
+      this.exportDlg.open = false;
+      const { html, plain } = this._buildExportData();
+      if (type === 'html') {
+        const r = await window.pywebview.api.copy_html_to_clipboard(html);
+        alert(r.ok ? '✅ HTML 已复制，可在 Outlook 粘贴' : '复制失败: ' + r.error);
+      } else if (type === 'eml') {
+        const r = await window.pywebview.api.save_eml(html, plain);
+        if (r.ok) alert(`✅ 已保存: ${r.path}`);
+        else if (r.error !== 'cancelled') alert('保存失败: ' + r.error);
+      } else {
+        try {
+          await navigator.clipboard.writeText(plain);
+          alert('✅ 纯文本已复制');
+        } catch { alert('剪贴板写入失败，请改用其他导出方式'); }
+      }
+    },
+
+    _buildExportData() {
+      const visCols = Object.entries(this.colVisibility)
+        .filter(([,v]) => v).map(([k]) => k);
+      const TH = 'border:1px solid #666;padding:6px 10px;background:#d0d7e3;font-weight:bold;font-family:Arial,sans-serif;font-size:13px;white-space:nowrap;';
+      const TE = 'border:1px solid #999;padding:5px 10px;font-family:Arial,sans-serif;font-size:12px;background:#ffffff;';
+      const TO = 'border:1px solid #999;padding:5px 10px;font-family:Arial,sans-serif;font-size:12px;background:#f0f4fa;';
+      const headers = visCols.map(c => `<th style="${TH}">${c}</th>`).join('');
+      const bodyHtml = this.queryResults.map((row, i) =>
+        `<tr>${visCols.map(c => `<td style="${i%2?TO:TE}">${row[c]||''}</td>`).join('')}</tr>`
+      ).join('\n');
+      const html  = `<table style="border-collapse:collapse;border:2px solid #555;font-family:Arial,sans-serif;"><thead><tr>${headers}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
+      const sep   = '-'.repeat(80);
+      const plain = [visCols.join(' | '), sep,
+        ...this.queryResults.map(r => visCols.map(c => r[c]||'').join(' | '))
+      ].join('\n');
+      return { html, plain };
+    },
+
+    /* ══════════════════════════════════════════════════
+       杂项
+    ══════════════════════════════════════════════════ */
+    clearAll() {
+      this.productItems    = [];
+      this.queryResults    = [];
+      this.company         = '';
+      this.companyColLabel = '';
+      this.codesText       = '未识别到商品代码';
+      this.selectedRowIdx  = -1;
+      updateQueryGrid([]);
+    },
+    async openDBUpdate() { await window.pywebview.api.open_db_update(); },
+    toggleLang()        { this.lang = this.lang === 'zh' ? 'en' : 'zh'; },
+  };
+}

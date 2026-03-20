@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>UMIHOSHI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/dist/ag-grid-community.min.js"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.13.3/dist/cdn.min.js"></script>
+  <link rel="stylesheet" href="style.css"/>
+  <style type="text/tailwindcss">
+    @layer components {
+      .btn-blue  { @apply px-3 py-1.5 text-xs font-semibold bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors; }
+      .btn-slate { @apply px-3 py-1.5 text-xs font-medium border border-slate-200 text-slate-600 rounded-md hover:bg-slate-50 disabled:opacity-40 transition-colors; }
+      .btn-ghost { @apply px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-100 rounded-md transition-colors; }
+      .input-base { @apply text-sm border border-slate-200 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white; }
+    }
+  </style>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body { display: flex; flex-direction: column; overflow: hidden; }
+    #query-panel, #pricelist-panel, #global-panel { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+    #queryGrid, #priceListGrid { flex: 1; min-height: 0; }
+  </style>
+</head>
+
+<body class="bg-slate-50 font-sans text-slate-800"
+      x-data="App()" x-init="init()"
+      @ocr-result.window="_handleOCRResult($event.detail)">
+
+  <!-- ═══ TOP BAR ═══ -->
+  <div class="flex items-center gap-2 px-3 py-2 bg-white border-b border-slate-200 flex-shrink-0 h-12">
+    <span class="text-sm font-bold text-slate-700 tracking-wide select-none mr-1">UMIHOSHI</span>
+    <div class="w-px h-5 bg-slate-200 mx-1"></div>
+
+    <!-- Company Selector -->
+    <label class="text-xs text-slate-400 font-medium">公司</label>
+    <select x-model="company" @change="onCompanyChange()"
+            class="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 w-36">
+      <option value="">-- 选择公司 --</option>
+      <template x-for="opt in companyOptions" :key="opt">
+        <option :value="opt" x-text="opt"></option>
+      </template>
+    </select>
+
+    <div class="w-px h-5 bg-slate-200 mx-1"></div>
+
+    <!-- Action buttons -->
+    <button @click="startOCR(false)" :disabled="isScanning" class="btn-blue">
+      <span x-show="!isScanning">OCR识别</span>
+      <span x-show="isScanning" class="flex items-center gap-1">
+        <svg class="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/>
+          <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+        </svg>识别中
+      </span>
+    </button>
+    <button @click="startOCR(true)"  :disabled="isScanning"  class="btn-slate">追加识别</button>
+    <button @click="queryPrices()"
+        :disabled="isQuerying || !productItems.length"
+        class="btn-blue">
+      <span x-show="!isQuerying">查询价格</span>
+      <span x-show="isQuerying">查询中…</span>
+    </button>
+    <button @click="openExportDialog()" :disabled="!queryResults.length" class="btn-slate">复制表格</button>
+    <button @click="clearAll()" class="btn-ghost text-red-400 hover:text-red-500 hover:bg-red-50">清空</button>
+
+    <div class="flex-1"></div>
+
+    <button @click="openDBUpdate()" class="btn-ghost text-slate-400">FullListUpdate</button>
+    <button @click="toggleLang()"
+            class="text-xs font-semibold px-2 py-1 rounded border border-blue-300 text-blue-500 hover:bg-blue-50 ml-1">
+      <span x-text="lang === 'zh' ? 'EN' : '中'"></span>
+    </button>
+  </div>
+
+  <!-- ═══ INFO BAR ═══ -->
+  <div class="flex items-center px-3 py-1 bg-blue-50 border-b border-blue-100 flex-shrink-0 min-h-7">
+    <span class="text-xs font-semibold text-blue-400 mr-2 flex-shrink-0">商品代码</span>
+    <span class="text-xs text-slate-600 truncate flex-1" x-text="codesText"></span>
+    <span x-show="company" class="text-xs text-blue-500 font-medium ml-4 flex-shrink-0"
+          x-text="'价格列: ' + (companyColLabel || 'High / Medium Price')"></span>
+  </div>
+
+  <!-- ═══ TAB BAR ═══ -->
+  <div class="flex items-end px-3 bg-white border-b border-slate-200 flex-shrink-0">
+    <template x-for="tab in tabs" :key="tab.id">
+      <button @click="switchTab(tab.id)"
+              :class="activeTab === tab.id
+                ? 'border-b-2 border-blue-500 text-blue-600 font-semibold'
+                : 'text-slate-500 hover:text-slate-700 border-b-2 border-transparent'"
+              class="px-4 py-2 text-xs transition-colors -mb-px">
+        <span x-text="tab.label"></span>
+      </button>
+    </template>
+  </div>
+
+  <!-- ═══ CONTENT ═══ -->
+  <div class="flex-1 flex flex-col overflow-hidden">
+
+    <!-- ── 价格查询 ────────────────────────────────── -->
+    <div id="query-panel" x-show="activeTab === 'query'">
+      <!-- Column toggles -->
+      <div class="flex items-center gap-x-3 gap-y-1 px-3 py-1.5 bg-white border-b border-slate-100 flex-shrink-0 overflow-x-auto flex-wrap">
+        <span class="text-xs text-slate-400 flex-shrink-0">显示列:</span>
+        <template x-for="col in infoColNames" :key="col">
+          <label class="flex items-center gap-0.5 cursor-pointer flex-shrink-0 select-none">
+            <input type="checkbox"
+                   :checked="colVisibility[col]"
+                   @change="toggleCol(col, $event.target.checked)"
+                   class="h-3 w-3 accent-blue-500"/>
+            <span class="text-xs text-slate-600 whitespace-nowrap" x-text="col"></span>
+          </label>
+        </template>
+        <div class="flex-1"></div>
+        <button @click="addBlankRow()"      class="btn-ghost text-xs py-0.5">＋ 行</button>
+        <button @click="removeSelectedRow()" class="btn-ghost text-xs py-0.5">－ 行</button>
+      </div>
+      <!-- Query AG Grid -->
+      <div id="queryGrid" class="ag-theme-alpine"></div>
+    </div>
+
+    <!-- ── 价目表 ──────────────────────────────────── -->
+    <div id="pricelist-panel" x-show="activeTab === 'pricelist'">
+      <!-- Search bar -->
+      <div class="flex items-center gap-2 px-3 py-2 bg-white border-b border-slate-100 flex-shrink-0">
+        <input type="text" x-model="priceSearch"
+               @keydown.enter="onPriceSearch()"
+               placeholder="关键词搜索（空格或逗号分隔）…"
+               class="input-base flex-1 text-xs py-1"/>
+        <button @click="onPriceSearch()" class="btn-blue">搜索</button>
+        <button @click="clearPriceSearch()" class="btn-ghost text-xs">✕ 清除</button>
+        <div class="w-px h-5 bg-slate-200"></div>
+        <span class="text-xs text-slate-400">行高</span>
+        <button @click="changeRowLines(-1)" class="btn-ghost text-xs w-6 h-6 p-0 flex items-center justify-center">－</button>
+        <span class="text-xs w-8 text-center font-mono" x-text="rowLines + '行'"></span>
+        <button @click="changeRowLines(1)"  class="btn-ghost text-xs w-6 h-6 p-0 flex items-center justify-center">＋</button>
+        <span class="text-xs text-slate-400 ml-1 min-w-32" x-text="priceStats"></span>
+      </div>
+      <!-- PriceList AG Grid -->
+      <div id="priceListGrid" class="ag-theme-alpine"></div>
+    </div>
+
+    <!-- ── 全局搜索 ─────────────────────────────────── -->
+    <div id="global-panel" x-show="activeTab === 'global'" class="p-4 overflow-auto">
+      <div class="flex items-center gap-3 mb-3 max-w-2xl">
+        <input type="text" x-model="globalKeyword"
+               @keydown.enter="doGlobalSearch()"
+               placeholder="在所有数据表中搜索…"
+               class="input-base flex-1"/>
+        <button @click="doGlobalSearch()" class="btn-blue px-4 py-2">全库搜索</button>
+      </div>
+      <p class="text-xs text-slate-400 mb-4" x-text="globalStats"></p>
+      <div id="globalResults"></div>
+    </div>
+  </div>
+
+  <!-- ═══ EDIT MODAL ═══ -->
+  <div x-show="editDlg.open"
+       x-transition:enter="transition ease-out duration-150"
+       x-transition:enter-start="opacity-0 scale-95"
+       x-transition:enter-end="opacity-100 scale-100"
+       @keydown.escape.window="editDlg.open = false"
+       class="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
+       style="display:none">
+    <div class="bg-white rounded-xl shadow-2xl w-[500px] p-6" @click.stop>
+      <h3 class="text-sm font-semibold text-slate-700 mb-4">编辑商品信息</h3>
+      <div class="space-y-3">
+        <div class="flex items-center gap-3">
+          <label class="text-xs text-slate-500 w-20 text-right">Item NO.</label>
+          <input type="text" x-model="editDlg.item_no" class="input-base flex-1 text-xs"/>
+        </div>
+        <div class="flex items-center gap-3">
+          <label class="text-xs text-slate-500 w-20 text-right">商品代码</label>
+          <input type="text" x-model="editDlg.code" class="input-base flex-1 text-xs"/>
+        </div>
+        <div class="flex items-start gap-3">
+          <label class="text-xs text-slate-500 w-20 text-right mt-1.5">客户描述</label>
+          <textarea x-model="editDlg.desc" rows="3"
+                    class="input-base flex-1 text-xs resize-none"></textarea>
+        </div>
+        <div class="flex items-center gap-3">
+          <label class="text-xs text-slate-500 w-20 text-right">数量</label>
+          <input type="text" x-model="editDlg.qty"  class="input-base w-24 text-xs"/>
+          <label class="text-xs text-slate-500 ml-3">UOM</label>
+          <input type="text" x-model="editDlg.unit" class="input-base w-20 text-xs"/>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-5">
+        <button @click="editDlg.open = false"  class="btn-ghost text-xs">取消</button>
+        <button @click="saveEdit()"             class="btn-slate text-xs">保存</button>
+        <button @click="matchEdit()"            class="btn-blue  text-xs">Match 重新查询</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ EXPORT MODAL ═══ -->
+  <div x-show="exportDlg.open"
+       x-transition:enter="transition ease-out duration-150"
+       x-transition:enter-start="opacity-0 scale-95"
+       x-transition:enter-end="opacity-100 scale-100"
+       @keydown.escape.window="exportDlg.open = false"
+       class="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
+       style="display:none">
+    <div class="bg-white rounded-xl shadow-2xl w-80 p-6" @click.stop>
+      <h3 class="text-sm font-semibold text-slate-700 mb-5 text-center">选择导出方式</h3>
+      <div class="flex flex-col gap-3">
+        <button @click="doExport('html')"
+                class="w-full py-3 rounded-lg bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 transition-colors">
+          复制 HTML 表格<br>
+          <span class="text-xs font-normal opacity-80">直接粘贴到 Outlook 邮件</span>
+        </button>
+        <button @click="doExport('eml')"
+                class="w-full py-3 rounded-lg bg-green-500 text-white text-sm font-medium hover:bg-green-600 transition-colors">
+          保存 .eml 文件<br>
+          <span class="text-xs font-normal opacity-80">双击可用邮件客户端打开</span>
+        </button>
+        <button @click="doExport('text')"
+                class="w-full py-2 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50 transition-colors">
+          复制纯文本
+        </button>
+      </div>
+      <button @click="exportDlg.open = false"
+              class="w-full mt-3 text-xs text-slate-400 hover:text-slate-600">取消</button>
+    </div>
+  </div>
+
+  <script src="js/grid.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

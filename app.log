@@ -1,0 +1,31 @@
+2026-03-20 16:43:51,161 - DEBUG - ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_gwuxgz62_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_gwuxgz62', '-l', 'eng+chi_sim', 'txt']
+2026-03-20 16:43:55,846 - INFO - �����ڿ�������
+2026-03-20 16:43:55,846 - DEBUG - ��Դ·��: images\seastarEngineLogo.png -> E:\pycharm\OCRPro\images\seastarEngineLogo.png
+2026-03-20 16:43:55,847 - DEBUG - STREAM b'IHDR' 16 13
+2026-03-20 16:43:55,847 - DEBUG - STREAM b'tEXt' 41 170
+2026-03-20 16:43:55,847 - DEBUG - STREAM b'IDAT' 223 8192
+2026-03-20 16:44:01,806 - DEBUG - [on_search_change] search_var=''
+2026-03-20 16:44:06,886 - DEBUG - [on_search_change] search_var=''
+2026-03-20 16:45:10,417 - DEBUG - [on_search_change] search_var=''
+2026-03-20 17:34:12,777 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_7t4u4flx_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_7t4u4flx', '-l', 'eng+chi_sim', 'txt']
+2026-03-20 17:34:12,983 [DEBUG] root: [OCR] 原始文本:
+795077 SOLDERING IRON ELECTRIC SG 220V 51W 1.00 PCS
+
+795170 SOLDERING WIRE RESIN CORED 450GRM 2.00 SPL
+2026-03-20 17:34:12,987 [DEBUG] root: [OCR] 最终配对: [('', '795077', 'SOLDERING IRON ELECTRIC SG 220V 51W', '1.00', 'PCS'), ('', '795170', 'SOLDERING WIRE RESIN CORED 450GRM 2.00 SPL', '', '')]
+2026-03-20 17:34:20,775 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_441dklnz_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_441dklnz', '-l', 'eng+chi_sim', 'txt']
+2026-03-20 17:34:20,969 [DEBUG] root: [OCR] 原始文本:
+11.00 795170 SOLDERING WIRE RESIN CORED 450GRM 2.00 SPL
+
+10.00 795174 SOLDERING PASTE 50GRM 2.00 TIN
+2026-03-20 17:34:20,969 [DEBUG] root: [OCR] 最终配对: [('11.00', '795170', 'SOLDERING WIRE RESIN CORED 450GRM 2.00 SPL', '', ''), ('10.00', '795174', 'SOLDERING PASTE 50GRM', '2.00', 'TIN')]
+2026-03-20 17:46:51,677 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_hv4g2v7j_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_hv4g2v7j', '-l', 'eng+chi_sim', 'txt']
+2026-03-20 17:46:51,850 [DEBUG] root: [OCR] 原始文本:
+10.00 795174 SOLDERING PASTE 50GRM 2.00 TIN
+2026-03-20 17:46:51,851 [DEBUG] root: [OCR] 最终配对: [('10.00', '795174', 'SOLDERING PASTE 50GRM', '2.00', 'TIN')]
+2026-03-20 17:54:55,165 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_shtmim1g_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_shtmim1g', '-l', 'eng+chi_sim', 'txt']
+2026-03-20 17:54:55,347 [DEBUG] root: [OCR] 原始文本:
+10.00 795174 SOLDERING PASTE 50GRM 2.00 TIN
+
+34,00 795178 DESOLDERING GUN VACUUM SUCTION TYPE 1.00 PCS
+2026-03-20 17:54:55,348 [DEBUG] root: [OCR] 最终配对: [('10.00', '795174', 'SOLDERING PASTE 50GRM', '2.00', 'TIN'), ('34,00', '795178', 'DESOLDERING GUN VACUUM SUCTION TYPE', '1.00', 'PCS')]

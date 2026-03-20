@@ -1,0 +1,62 @@
+"""
+app.py — 应用启动入口
+替代原 price_query_system.py 的 if __name__ == '__main__' 块。
+运行方式：python app.py
+调试模式：python app.py --debug
+"""
+
+import logging
+import os
+import sys
+
+import webview
+
+from api import API
+
+
+logging.basicConfig(
+    level   = logging.DEBUG,
+    format  = "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers = [
+        logging.FileHandler("app.log", encoding="utf-8"),
+        logging.StreamHandler(sys.stdout),
+    ],
+)
+
+
+def _frontend_path() -> str:
+    """解析 frontend/index.html 的绝对路径，兼容打包环境。"""
+    if getattr(sys, "frozen", False):
+        base = os.path.join(os.path.dirname(sys.executable), "_internal")
+    else:
+        base = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base, "frontend", "index.html")
+
+
+def main() -> None:
+    api   = API()
+    debug = "--debug" in sys.argv
+    html  = _frontend_path()
+
+    if not os.path.exists(html):
+        logging.error(f"前端文件不存在: {html}，请先完成前端层开发")
+        sys.exit(1)
+
+    window = webview.create_window(
+        title            = "UMIHOSHI",
+        url              = html,
+        js_api           = api,
+        width            = 1440,
+        height           = 860,
+        min_size         = (1024, 600),
+        background_color = "#ffffff",
+        text_select      = True,
+    )
+
+    api.set_window(window)
+
+    webview.start(debug=debug, http_server=False)
+
+
+if __name__ == "__main__":
+    main()
