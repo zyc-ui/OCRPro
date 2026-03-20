@@ -234,10 +234,26 @@ function App() {
         this.queryResults = normalized;
         this.activeTab = 'query';
         await this._nextTick();
+
+        // 兜底：如果 AG Grid 尚未初始化（偶发），先补初始化再写入数据。
+        // 否则会出现“后端查了但表格不更新”的观感。
+        if (!this.queryGridApi) {
+          console.warn('[Query] queryGridApi 为空，尝试重新初始化 Grid');
+          try {
+            initQueryGrid(this);
+            await new Promise(r => setTimeout(r, 60));
+          } catch (e) {
+            console.error('[Query] initQueryGrid 失败:', e);
+          }
+        }
+
         const synced = syncQueryGrid(this, this.queryResults);
         if (!synced) {
           refreshQueryCols(this);
           updateQueryGrid(this.queryResults);
+          if (!this.queryGridApi) {
+            alert('查询已返回，但价格表格未能刷新（AG Grid 初始化失败）。请查看控制台日志。');
+          }
         }
 
         console.log('[Query] Grid 已更新，行数:', normalized.length);
