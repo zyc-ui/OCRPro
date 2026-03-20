@@ -248,12 +248,24 @@ function App() {
         }
 
         const synced = syncQueryGrid(this, this.queryResults);
-        if (!synced) {
-          refreshQueryCols(this);
-          updateQueryGrid(this.queryResults);
-          if (!this.queryGridApi) {
-            alert('查询已返回，但价格表格未能刷新（AG Grid 初始化失败）。请查看控制台日志。');
+
+        // 强制二次写入：有些情况下 syncQueryGrid 只更新了 columnDefs，
+        // rAF 内的 rowData 写入可能被时序影响丢掉，表现为“点击无反应”。
+        // 这里等待一个很短的时间让 Grid 完成列重建，然后再 set rowData。
+        try {
+          await new Promise(r => setTimeout(r, 40));
+          const ok = updateQueryGrid(this.queryResults);
+          if (!ok) {
+            console.warn('[Query] updateQueryGrid 返回失败');
+            if (!this.queryGridApi) {
+              alert('查询已返回，但价格表格未能刷新（AG Grid 初始化失败）。请查看控制台日志。');
+            } else if (!synced) {
+              refreshQueryCols(this);
+              updateQueryGrid(this.queryResults);
+            }
           }
+        } catch (e) {
+          console.error('[Query] 强制刷新 Grid 失败:', e);
         }
 
         console.log('[Query] Grid 已更新，行数:', normalized.length);

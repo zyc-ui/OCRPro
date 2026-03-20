@@ -147,9 +147,41 @@ function updateQueryGrid(rows) {
       if (queryGridApi) {
         queryGridApi.refreshCells({ force: true });
         queryGridApi.redrawRows();
+        // 兜底：强制重新计算布局，避免 CDN 样式未就绪导致“像没更新”
+        try { queryGridApi.doLayout(); } catch (e) {}
+        try { queryGridApi.refreshView(); } catch (e) {}
+        try { queryGridApi.resetRowHeights(); } catch (e) {}
         queryGridApi.sizeColumnsToFit();
         if (normalizedRows.length) {
           queryGridApi.ensureIndexVisible(0, 'top');
+        }
+
+        // 调试：确认 Grid 实际显示行数
+        try {
+          const displayed = queryGridApi.getDisplayedRowCount();
+          console.log('[Grid] updateQueryGrid displayedRowCount:', displayed);
+          const el = document.getElementById('queryGrid');
+          if (el) {
+            const r = el.getBoundingClientRect();
+            console.log('[Grid] queryGrid height:', {
+              clientHeight: el.clientHeight,
+              rectHeight: r.height,
+              rectWidth: r.width,
+            });
+          }
+          // 调试：确认 DOM 层是否真的生成了行节点
+          const domRows = document.querySelectorAll('#queryGrid .ag-center-cols-container .ag-row');
+          console.log('[Grid] updateQueryGrid dom ag-row count:', domRows.length);
+          // 调试：确认第一行数据是否存在（排除“值都为空导致看起来像空”）
+          try {
+            const node0 = queryGridApi.getDisplayedRowAtIndex?.(0);
+            const data0 = node0?.data;
+            console.log('[Grid] updateQueryGrid row0 data:', data0);
+          } catch (e) {
+            console.warn('[Grid] updateQueryGrid 获取 row0 data 失败:', e);
+          }
+        } catch (e) {
+          console.warn('[Grid] updateQueryGrid 获取 displayedRowCount 失败:', e);
         }
       }
     });
@@ -175,8 +207,28 @@ function refreshQueryCols(app) {
       queryGridApi.setGridOption('rowData', normalizeGridRows(app.queryResults));
       queryGridApi.refreshCells({ force: true });
       queryGridApi.redrawRows();
+      try { queryGridApi.doLayout(); } catch (e) {}
+      try { queryGridApi.refreshView(); } catch (e) {}
+      try { queryGridApi.resetRowHeights(); } catch (e) {}
       queryGridApi.ensureIndexVisible(0, 'top');
       console.log('[Grid] refreshQueryCols → rowData 已在 rAF 后更新，行数:', app.queryResults.length);
+
+      // 调试：确认 Grid 实际显示行数
+      try {
+        const displayed = queryGridApi.getDisplayedRowCount();
+        console.log('[Grid] refreshQueryCols displayedRowCount:', displayed);
+        const el = document.getElementById('queryGrid');
+        if (el) {
+          const r = el.getBoundingClientRect();
+          console.log('[Grid] queryGrid height:', {
+            clientHeight: el.clientHeight,
+            rectHeight: r.height,
+            rectWidth: r.width,
+          });
+        }
+      } catch (e) {
+        console.warn('[Grid] refreshQueryCols 获取 displayedRowCount 失败:', e);
+      }
     }
   });
 }
@@ -193,11 +245,54 @@ function syncQueryGrid(app, rows) {
     queryGridApi.setGridOption('rowData', normalizedRows);
     queryGridApi.refreshCells({ force: true });
     queryGridApi.redrawRows();
+    // 兜底：强制重新计算布局，避免 CDN 样式/布局时序问题
+    try { queryGridApi.doLayout(); } catch (e) {}
+    try { queryGridApi.refreshView(); } catch (e) {}
+    try { queryGridApi.resetRowHeights(); } catch (e) {}
     window.dispatchEvent(new Event('resize'));
     queryGridApi.sizeColumnsToFit();
     if (normalizedRows.length) {
       queryGridApi.ensureIndexVisible(0, 'top');
     }
+
+     // 调试：确认 Grid 实际显示行数
+     try {
+       const displayed = queryGridApi.getDisplayedRowCount();
+       console.log('[Grid] syncQueryGrid displayedRowCount:', displayed);
+       const el = document.getElementById('queryGrid');
+       if (el) {
+         const r = el.getBoundingClientRect();
+         console.log('[Grid] queryGrid height:', {
+           clientHeight: el.clientHeight,
+           rectHeight: r.height,
+           rectWidth: r.width,
+         });
+       }
+
+       // 调试：确认 DOM 层是否真的生成了行节点（用于排除“值在模型里但不渲染”）
+       const domRows = document.querySelectorAll('#queryGrid .ag-center-cols-container .ag-row');
+       console.log('[Grid] syncQueryGrid dom ag-row count:', domRows.length);
+       if (domRows.length) {
+         const row0 = domRows[0];
+         const st = window.getComputedStyle(row0);
+         console.log('[Grid] syncQueryGrid row0 computed style:', {
+           display: st.display,
+           visibility: st.visibility,
+           opacity: st.opacity,
+           color: st.color,
+           backgroundColor: st.backgroundColor,
+           height: st.height,
+         });
+       }
+
+       // 调试：确认第一行数据是否存在
+       try {
+         const node0 = queryGridApi.getDisplayedRowAtIndex?.(0);
+         console.log('[Grid] syncQueryGrid row0 data:', node0?.data);
+       } catch (e) {}
+     } catch (e) {
+       console.warn('[Grid] syncQueryGrid 获取 displayedRowCount 失败:', e);
+     }
     console.log('[Grid] syncQueryGrid 完成，行数:', normalizedRows.length);
   });
   return true;
