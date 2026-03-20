@@ -127,6 +127,11 @@ function initQueryGrid(app) {
   }, 200);
 }
 
+function normalizeGridRows(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows.map(row => ({ ...(row || {}) }));
+}
+
 function updateQueryGrid(rows) {
   console.log('[Grid] updateQueryGrid 调用, queryGridApi:', !!queryGridApi, '行数:', rows?.length);
   if (!queryGridApi) {
@@ -134,7 +139,7 @@ function updateQueryGrid(rows) {
     return false;
   }
   try {
-    queryGridApi.setGridOption('rowData', rows);
+    queryGridApi.setGridOption('rowData', normalizeGridRows(rows));
     // 强制 AG Grid 重新计算视口尺寸（pywebview 嵌入式 Chromium 不会自动触发）
     requestAnimationFrame(() => {
       window.dispatchEvent(new Event('resize'));
@@ -162,7 +167,7 @@ function refreshQueryCols(app) {
   // 第二步：等列稳定后设置行数据（requestAnimationFrame ≈ 16ms）
   requestAnimationFrame(() => {
     if (queryGridApi && app.queryResults && app.queryResults.length) {
-      queryGridApi.setGridOption('rowData', app.queryResults);
+      queryGridApi.setGridOption('rowData', normalizeGridRows(app.queryResults));
       console.log('[Grid] refreshQueryCols → rowData 已在 rAF 后更新，行数:', app.queryResults.length);
     }
   });

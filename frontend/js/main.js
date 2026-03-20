@@ -190,17 +190,13 @@ function App() {
 
       this.isQuerying = true;
       try {
-        // ── 1. 调用 Python API ────────────────────────────────────────
-        const res = await window.pywebview.api.query_prices(
-          this.productItems, this.company
-        );
+        const items = this.productItems.map(item => ({ ...item }));
+        const res = await window.pywebview.api.query_prices(items, this.company);
 
-        // ── 2. 诊断返回值类型 ─────────────────────────────────────────
         console.log('[Query] 返回类型:', typeof res,
                     '是数组:', Array.isArray(res),
                     '长度:', Array.isArray(res) ? res.length : 'N/A');
 
-        // pywebview 在 Python 抛出异常时会返回带 message/name 字段的普通对象
         if (res && typeof res === 'object' && !Array.isArray(res)) {
           const errMsg = res.message || res.error || JSON.stringify(res);
           console.error('[Query] Python 返回了错误对象:', errMsg);
@@ -209,25 +205,37 @@ function App() {
           return;
         }
 
-        if (!Array.isArray(res) || res.length === 0) {
-          console.warn('[Query] 返回空数组或非数组:', res);
+        if (!Array.isArray(res)) {
+          console.warn('[Query] 返回非数组:', res);
+          alert('查询完成但返回数据格式异常，请检查日志。');
+          return;
+        }
+
+        const normalized = items.map((item, idx) => {
+          const row = res[idx] && typeof res[idx] === 'object' ? { ...res[idx] } : {};
+          return {
+            'Item NO.': row['Item NO.'] ?? item.item_no ?? '',
+            '商品代码': row['商品代码'] ?? item.code ?? '',
+            '客户描述': row['客户描述'] ?? item.desc ?? '',
+            '数量': row['数量'] ?? item.qty ?? '',
+            'UOM': row['UOM'] ?? item.unit ?? '',
+            ...row,
+          };
+        });
+
+        if (!normalized.length) {
+          console.warn('[Query] 标准化后结果为空:', res);
           alert('查询完成但未返回数据。\n\n可能原因：\n'
               + '1. 数据库尚未导入（请点击 FullListUpdate）\n'
               + '2. 商品代码在数据库中不存在');
           return;
         }
 
-        alert('[Query调试] 返回' + res.length + '条\n第一条keys: ' + Object.keys(res[0]).join(', ') + '\n商品代码: ' + res[0]['商品代码']);
-        //console.log('[Query] 第一条结果 keys:', Object.keys(res[0]));DevTool
+        this.queryResults = normalized;
+        refreshQueryCols(this);
+        updateQueryGrid(this.queryResults);
 
-        // ── 3. 先刷新列定义（含当前公司价格列），再写入行数据 ─────────
-        // AG Grid 重建列定义需要一个异步 tick，延迟后再设置 rowData
-        this.queryResults = res;
-        refreshQueryCols(this);             // 重建列（setColumnDefs + setRowData）
-        await new Promise(r => setTimeout(r, 50));
-        updateQueryGrid(this.queryResults); // 确保 rowData 在列稳定后再设置一次
-
-        console.log('[Query] Grid 已更新，行数:', res.length);
+        console.log('[Query] Grid 已更新，行数:', normalized.length);
 
       } catch (e) {
         console.error('[Query] JS 层捕获异常:', e);
