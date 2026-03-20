@@ -120,6 +120,11 @@ function initQueryGrid(app) {
   };
   queryGridApi = agGrid.createGrid(document.getElementById('queryGrid'), opts);
   app.queryGridApi = queryGridApi;
+  // 初始化后触发一次 resize，确保 pywebview 下高度计算正确
+  setTimeout(() => {
+    window.dispatchEvent(new Event('resize'));
+    if (queryGridApi) queryGridApi.sizeColumnsToFit();
+  }, 200);
 }
 
 function updateQueryGrid(rows) {
@@ -130,8 +135,9 @@ function updateQueryGrid(rows) {
   }
   try {
     queryGridApi.setGridOption('rowData', rows);
-    // 强制重绘并适配列宽，解决 pywebview 下不刷新的问题
+    // 强制 AG Grid 重新计算视口尺寸（pywebview 嵌入式 Chromium 不会自动触发）
     requestAnimationFrame(() => {
+      window.dispatchEvent(new Event('resize'));
       if (queryGridApi) {
         queryGridApi.redrawRows();
         queryGridApi.sizeColumnsToFit();
