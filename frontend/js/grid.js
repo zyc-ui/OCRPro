@@ -94,7 +94,7 @@ function initQueryGrid(app) {
     headerHeight: 38,
     rowSelection: 'single',
     suppressRowClickSelection: false,
-    animateRows: true,
+    animateRows: false,
     suppressContextMenu: true,
     defaultColDef: { sortable: true, filter: false, resizable: true },
     rowClassRules: {
@@ -130,6 +130,13 @@ function updateQueryGrid(rows) {
   }
   try {
     queryGridApi.setGridOption('rowData', rows);
+    // 强制重绘并适配列宽，解决 pywebview 下不刷新的问题
+    requestAnimationFrame(() => {
+      if (queryGridApi) {
+        queryGridApi.redrawRows();
+        queryGridApi.sizeColumnsToFit();
+      }
+    });
     console.log('[Grid] rowData 更新成功');
     return true;
   } catch (e) {
@@ -138,10 +145,21 @@ function updateQueryGrid(rows) {
   }
 }
 
+/**
+ * 先更新列定义，等 AG Grid 完成列重建（一个 rAF）后再设置 rowData。
+ * 直接连续调用两次 setGridOption 会导致 rowData 在列尚未稳定时被丢弃。
+ */
 function refreshQueryCols(app) {
   if (!queryGridApi) return;
+  // 第一步：更新列定义
   queryGridApi.setGridOption('columnDefs', buildQueryColDefs(app));
-  queryGridApi.setGridOption('rowData', app.queryResults);
+  // 第二步：等列稳定后设置行数据（requestAnimationFrame ≈ 16ms）
+  requestAnimationFrame(() => {
+    if (queryGridApi && app.queryResults && app.queryResults.length) {
+      queryGridApi.setGridOption('rowData', app.queryResults);
+      console.log('[Grid] refreshQueryCols → rowData 已在 rAF 后更新，行数:', app.queryResults.length);
+    }
+  });
 }
 
 /* ───────── 价目表 ───────────────────────────────────── */

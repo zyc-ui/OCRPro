@@ -21,8 +21,23 @@
   <style>
     html, body { height: 100%; margin: 0; }
     body { display: flex; flex-direction: column; overflow: hidden; }
-    #query-panel, #pricelist-panel, #global-panel { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
-    #queryGrid, #priceListGrid { flex: 1; min-height: 0; }
+    #query-panel, #pricelist-panel, #global-panel {
+      display: flex; flex-direction: column; flex: 1; overflow: hidden;
+    }
+    /* 明确高度：flex:1 + min-height:0 保证 AG Grid 能计算出正确尺寸 */
+    #queryGrid, #priceListGrid {
+      flex: 1;
+      min-height: 0;
+      height: 100%;    /* fallback for pywebview Chromium */
+    }
+    /* 确保内容区（三个面板的父容器）也是 flex 列布局 */
+    .content-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
   </style>
 </head>
 
@@ -98,7 +113,7 @@
   </div>
 
   <!-- ═══ CONTENT ═══ -->
-  <div class="flex-1 flex flex-col overflow-hidden">
+  <div class="content-wrapper">
 
     <!-- ── 价格查询 ────────────────────────────────── -->
     <div id="query-panel" x-show="activeTab === 'query'">

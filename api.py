@@ -87,11 +87,27 @@ class API:
         items: [{item_no, code, desc, qty, unit}, ...]
         返回顺序与 items 一致的结果列表。
         """
+        import json as _json
         try:
-            return batch_query(items, company_name)
+            logging.info(f"[API] query_prices 调用: {len(items)} 条, 公司={company_name!r}")
+            logging.info(f"[API] items[0]={items[0] if items else 'empty'}")
+
+            results = batch_query(items, company_name)
+
+            # 显式序列化再反序列化，保证 pywebview 拿到的是纯 JSON 兼容结构
+            # 同时把所有 None 转为空字符串，避免前端出现 null
+            clean = _json.loads(_json.dumps(
+                results,
+                ensure_ascii=False,
+                default=lambda o: "" if o is None else str(o)
+            ))
+            logging.info(f"[API] query_prices 返回 {len(clean)} 条")
+            return clean
+
         except Exception as e:
-            logging.error(f"[API] query_prices 失败: {e}")
-            raise
+            logging.error(f"[API] query_prices 失败: {e}", exc_info=True)
+            # 返回带 error 字段的对象，前端可检测到
+            return {"error": str(e), "message": f"查询失败: {e}"}
 
     def query_single(
         self,

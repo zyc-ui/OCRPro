@@ -173,7 +173,7 @@ function App() {
     },
 
     /* ══════════════════════════════════════════════════
-       查询价格
+       查询价格  ← 修复：先刷新列定义，再写入行数据
     ══════════════════════════════════════════════════ */
     async queryPrices() {
       if (!this.productItems.length) {
@@ -184,33 +184,53 @@ function App() {
         alert('请先在左上角选择公司（选择 Other 则使用默认价格列）');
         return;
       }
-      console.log('[Query] 开始查询', this.productItems.length, '个商品，公司:', this.company);
+
+      console.log('[Query] 开始查询，商品数:', this.productItems.length, '公司:', this.company);
+      console.log('[Query] productItems[0]:', JSON.stringify(this.productItems[0]));
+
       this.isQuerying = true;
       try {
-        if (!window.pywebview?.api) {
-          throw new Error('pywebview 桥接未就绪，请重启程序');
-        }
+        // ── 1. 调用 Python API ────────────────────────────────────────
         const res = await window.pywebview.api.query_prices(
           this.productItems, this.company
         );
-        console.log('[Query] 返回结果数量:', res?.length, '第一条:', res?.[0]);
-        if (!Array.isArray(res) || res.length === 0) {
-          alert('查询完成但未返回数据。\n\n可能原因：\n1. 数据库尚未导入（请点击 FullListUpdate）\n2. 商品代码在数据库中不存在');
+
+        // ── 2. 诊断返回值类型 ─────────────────────────────────────────
+        console.log('[Query] 返回类型:', typeof res,
+                    '是数组:', Array.isArray(res),
+                    '长度:', Array.isArray(res) ? res.length : 'N/A');
+
+        // pywebview 在 Python 抛出异常时会返回带 message/name 字段的普通对象
+        if (res && typeof res === 'object' && !Array.isArray(res)) {
+          const errMsg = res.message || res.error || JSON.stringify(res);
+          console.error('[Query] Python 返回了错误对象:', errMsg);
+          alert('查询出错（Python 异常）：\n' + errMsg
+              + '\n\n请确认：\n1. 已通过 FullListUpdate 导入数据\n2. 数据库文件存在');
           return;
         }
-        this.queryResults = res;
-        const ok = updateQueryGrid(res);
-        if (!ok) {
-          // Grid 未初始化（极少见），等待后重试一次
-          console.warn('[Query] Grid API 未就绪，100ms 后重试');
-          await new Promise(r => setTimeout(r, 100));
-          const ok2 = updateQueryGrid(res);
-          if (!ok2) {
-            alert('表格渲染失败，请切换到其他标签再切回来，或重启程序');
-          }
+
+        if (!Array.isArray(res) || res.length === 0) {
+          console.warn('[Query] 返回空数组或非数组:', res);
+          alert('查询完成但未返回数据。\n\n可能原因：\n'
+              + '1. 数据库尚未导入（请点击 FullListUpdate）\n'
+              + '2. 商品代码在数据库中不存在');
+          return;
         }
+
+        alert('[Query调试] 返回' + res.length + '条\n第一条keys: ' + Object.keys(res[0]).join(', ') + '\n商品代码: ' + res[0]['商品代码']);
+        //console.log('[Query] 第一条结果 keys:', Object.keys(res[0]));DevTool
+
+        // ── 3. 先刷新列定义（含当前公司价格列），再写入行数据 ─────────
+        // AG Grid 重建列定义需要一个异步 tick，延迟后再设置 rowData
+        this.queryResults = res;
+        refreshQueryCols(this);             // 重建列（setColumnDefs + setRowData）
+        await new Promise(r => setTimeout(r, 50));
+        updateQueryGrid(this.queryResults); // 确保 rowData 在列稳定后再设置一次
+
+        console.log('[Query] Grid 已更新，行数:', res.length);
+
       } catch (e) {
-        console.error('[Query] 出错:', e);
+        console.error('[Query] JS 层捕获异常:', e);
         alert('查询出错: ' + String(e));
       } finally {
         this.isQuerying = false;

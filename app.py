@@ -55,7 +55,7 @@ def main() -> None:
 
     api.set_window(window)
 
-    webview.start(debug=debug, http_server=False)
+    webview.start(debug=True, http_server=False)
 
 
 if __name__ == "__main__":
