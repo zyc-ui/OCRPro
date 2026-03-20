@@ -232,8 +232,13 @@ function App() {
         }
 
         this.queryResults = normalized;
-        refreshQueryCols(this);
-        updateQueryGrid(this.queryResults);
+        this.activeTab = 'query';
+        await this._nextTick();
+        const synced = syncQueryGrid(this, this.queryResults);
+        if (!synced) {
+          refreshQueryCols(this);
+          updateQueryGrid(this.queryResults);
+        }
 
         console.log('[Query] Grid 已更新，行数:', normalized.length);
 

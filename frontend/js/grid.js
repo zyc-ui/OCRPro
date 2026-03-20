@@ -139,13 +139,18 @@ function updateQueryGrid(rows) {
     return false;
   }
   try {
-    queryGridApi.setGridOption('rowData', normalizeGridRows(rows));
+    const normalizedRows = normalizeGridRows(rows);
+    queryGridApi.setGridOption('rowData', normalizedRows);
     // 强制 AG Grid 重新计算视口尺寸（pywebview 嵌入式 Chromium 不会自动触发）
     requestAnimationFrame(() => {
       window.dispatchEvent(new Event('resize'));
       if (queryGridApi) {
+        queryGridApi.refreshCells({ force: true });
         queryGridApi.redrawRows();
         queryGridApi.sizeColumnsToFit();
+        if (normalizedRows.length) {
+          queryGridApi.ensureIndexVisible(0, 'top');
+        }
       }
     });
     console.log('[Grid] rowData 更新成功');
@@ -168,9 +173,34 @@ function refreshQueryCols(app) {
   requestAnimationFrame(() => {
     if (queryGridApi && app.queryResults && app.queryResults.length) {
       queryGridApi.setGridOption('rowData', normalizeGridRows(app.queryResults));
+      queryGridApi.refreshCells({ force: true });
+      queryGridApi.redrawRows();
+      queryGridApi.ensureIndexVisible(0, 'top');
       console.log('[Grid] refreshQueryCols → rowData 已在 rAF 后更新，行数:', app.queryResults.length);
     }
   });
+}
+
+function syncQueryGrid(app, rows) {
+  if (!queryGridApi) {
+    console.error('[Grid] syncQueryGrid 失败: queryGridApi 尚未初始化');
+    return false;
+  }
+  const normalizedRows = normalizeGridRows(rows);
+  queryGridApi.setGridOption('columnDefs', buildQueryColDefs(app));
+  requestAnimationFrame(() => {
+    if (!queryGridApi) return;
+    queryGridApi.setGridOption('rowData', normalizedRows);
+    queryGridApi.refreshCells({ force: true });
+    queryGridApi.redrawRows();
+    window.dispatchEvent(new Event('resize'));
+    queryGridApi.sizeColumnsToFit();
+    if (normalizedRows.length) {
+      queryGridApi.ensureIndexVisible(0, 'top');
+    }
+    console.log('[Grid] syncQueryGrid 完成，行数:', normalizedRows.length);
+  });
+  return true;
 }
 
 /* ───────── 价目表 ───────────────────────────────────── */
