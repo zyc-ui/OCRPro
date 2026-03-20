@@ -87,7 +87,11 @@ class API:
         items: [{item_no, code, desc, qty, unit}, ...]
         返回顺序与 items 一致的结果列表。
         """
-        return batch_query(items, company_name)
+        try:
+            return batch_query(items, company_name)
+        except Exception as e:
+            logging.error(f"[API] query_prices 失败: {e}")
+            raise
 
     def query_single(
         self,
@@ -113,7 +117,7 @@ class API:
     def start_ocr(self) -> bool:
         """
         启动 OCR 全屏选区（非阻塞）。
-        OCR 完成后前端收到 window.__onOCRResult(items) 回调。
+        OCR 完成后（包括取消/Escape）前端收到 ocr-result 自定义事件。
         返回 False 表示 Tesseract 未找到。
         """
         def _on_result(items: list) -> None:
@@ -124,8 +128,8 @@ class API:
             payload = json.dumps(js_items, ensure_ascii=False)
             if self._window:
                 self._window.evaluate_js(
-    f"window.dispatchEvent(new CustomEvent('ocr-result',{{detail:{payload}}}))"
-)
+                    f"window.dispatchEvent(new CustomEvent('ocr-result',{{detail:{payload}}}))"
+                )
 
         return self._ocr.start_selection(_on_result)
 
@@ -224,18 +228,54 @@ class API:
     # ── 数据库更新 ────────────────────────────────────────────────────────────
 
     def open_db_update(self) -> None:
-        """在独立 tkinter 线程里弹出 DatabaseUpdate 窗口。"""
-        def _run():
-            import tkinter as tk
-            from DatabaseUpdate import DatabaseUpdateWindow
+        """
+        用 pywebview 原生文件对话框选择 Excel，然后在后台线程导入到 SQLite。
+        原先在 daemon 线程中创建 tk.Tk() 会因为 tkinter 只允许在主线程初始化
+        而静默崩溃，改为此方案。
+        """
+        # create_file_dialog 在 pywebview API 调用上下文中可安全调用
+        file_result = self._window.create_file_dialog(
+            webview.OPEN_DIALOG,
+            file_types=("Excel Files (*.xlsx;*.xls;*.xlsm)", "All files (*.*)")
+        )
+        if not file_result:
+            return  # 用户取消
 
-            root = tk.Tk()
-            root.withdraw()
-            win  = DatabaseUpdateWindow(root)
-            win.win.protocol(
-                "WM_DELETE_WINDOW",
-                lambda: (win.win.destroy(), root.destroy())
-            )
-            root.mainloop()
+        filepath = file_result[0] if isinstance(file_result, (list, tuple)) else file_result
+
+        def _run():
+            try:
+                from DatabaseUpdate import import_excel_to_db
+
+                def _status(msg: str):
+                    """将进度文字打印到 console（前端可通过 DevTools 查看）。"""
+                    try:
+                        self._window.evaluate_js(
+                            f"console.log('DB Import:', {json.dumps(msg)})"
+                        )
+                    except Exception:
+                        pass
+
+                table_name, row_count = import_excel_to_db(
+                    filepath, status_callback=_status
+                )
+
+                # 导入成功：通知前端重置价目表缓存并弹出提示
+                success_msg = f"✅ 导入成功！\n表名：{table_name}\n共导入 {row_count} 行数据\n\n请重新点击「价目表」标签以刷新数据。"
+                self._window.evaluate_js(
+                    # 重置价目表缓存，让下次切换标签时重新加载
+                    "window.appState && (window.appState._plLoadedFor = null);"
+                    f"alert({json.dumps(success_msg)});"
+                )
+
+            except Exception as e:
+                error_msg = f"❌ 导入失败：{str(e)}"
+                logging.error(f"[DB Update] {error_msg}")
+                try:
+                    self._window.evaluate_js(
+                        f"alert({json.dumps(error_msg)})"
+                    )
+                except Exception:
+                    pass
 
         threading.Thread(target=_run, daemon=True).start()

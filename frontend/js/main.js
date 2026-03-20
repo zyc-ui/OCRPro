@@ -27,13 +27,14 @@ function App() {
 
     /* ── 列显示 ──────────────────────────────────────── */
     colVisibility: {},
-    infoColNames:  [],   /* FL_DISPLAY 0-24，供复选框渲染 */
+    infoColNames:  [],   /* FL_DISPLAY 0-21，供复选框渲染 */
 
     /* ── 价目表 ──────────────────────────────────────── */
     priceSearch:      '',
     priceStats:       '',
     rowLines:         3,
     _plLoadedFor:     null,
+    _plGridInited:    false,   // 记录价目表 Grid 是否已初始化
     priceListCallback: null,
 
     /* ── 全局搜索 ─────────────────────────────────────── */
@@ -66,22 +67,33 @@ function App() {
       this.flDisplay      = cfg.fl_display;
       this.colWidths      = cfg.col_widths;
 
-      /* 列显示：信息列 0-24 + 通用价格列 22-24 */
+      /* 列显示：信息列 0-24 */
       const names = {};
       cfg.fl_display.slice(0, 25).forEach(col => { names[col] = true; });
       this.colVisibility = names;
       this.infoColNames  = cfg.fl_display.slice(0, 22);
 
       if (!cfg.db_ok) {
-        alert('⚠️ 数据库中缺少 FullList 表，请点击 FullListUpdate 导入数据');
+        alert('⚠️ 数据库中缺少 FullList 表，请点击右上角 FullListUpdate 选择 Excel 文件导入数据');
       }
 
+      // 查询 Grid 在可见的 query-panel 里初始化，没有问题
       initQueryGrid(this);
-      initPriceListGrid(this);
 
-      /* 切换标签页时按需加载价目表并 resize */
+      // 价目表 Grid 延迟到用户第一次切换标签时初始化（避免在 display:none 元素上初始化失败）
+      // initPriceListGrid 已移到 $watch 里
+
+      /* 切换标签页时按需加载 */
       this.$watch('activeTab', async tab => {
         if (tab === 'pricelist') {
+          // 延迟一个 tick，确保 Alpine 已将面板切换为可见（display != none）
+          await this._nextTick();
+          if (!this._plGridInited) {
+            initPriceListGrid(this);
+            this._plGridInited = true;
+            // 等 Grid DOM 稳定后再加载数据
+            await new Promise(r => setTimeout(r, 80));
+          }
           await this._loadPriceList();
           resizeGrid(this.priceListGridApi);
         }
@@ -94,6 +106,11 @@ function App() {
         if (window.pywebview?.api) { resolve(); return; }
         window.addEventListener('pywebviewready', resolve, { once: true });
       });
+    },
+
+    /** 等待下一个 microtask/macrotask，让 Alpine DOM 更新完成 */
+    _nextTick() {
+      return new Promise(r => setTimeout(r, 0));
     },
 
     /* ══════════════════════════════════════════════════
@@ -109,7 +126,7 @@ function App() {
                              'Anchor Marine','RMS Marine','Fuji Trading','Con Lash'];
       this.companyColLabel = COMPANY_LIST.includes(this.company)
         ? this.company : 'High / Medium Price';
-      this._plLoadedFor = null;
+      this._plLoadedFor = null;    // 公司变更：强制刷新价目表
       if (this.queryResults.length) refreshQueryCols(this);
     },
 
@@ -121,71 +138,84 @@ function App() {
       this._ocrAppend = append;
       const ok = await window.pywebview.api.start_ocr();
       if (!ok) {
+        // Tesseract 未找到：立即重置按钮状态
         alert('❌ Tesseract 未找到，请检查 ocr_engine.py 中的路径配置');
         this.isScanning = false;
       }
+      // ok=true 时：isScanning 将在收到 ocr-result 事件后重置（含取消情况）
     },
 
     _handleOCRResult(items) {
-  console.log('[OCR] _handleOCRResult 收到', items?.length, '条', items);
-  this.isScanning = false;
-  if (!items?.length) {
-    this.codesText = '未识别到商品代码';
-    return;
-  }
-  const valid = items.filter(i => i.code);
-  console.log('[OCR] 有效商品数:', valid.length);
-  if (!valid.length) {
-    this.codesText = '识别到结果但无商品代码，请重试';
-    return;
-  }
-  this.productItems = this._ocrAppend
-    ? [...this.productItems, ...valid]
-    : valid;
-  this.codesText = this.productItems
-    .map(i => i.desc ? `${i.code}: ${i.desc}` : i.code)
-    .join('  |  ');
-  console.log('[OCR] productItems 已更新，数量:', this.productItems.length);
-},
+      console.log('[OCR] _handleOCRResult 收到', items?.length, '条', items);
+      // 无论成功/取消/失败，都重置扫描状态
+      this.isScanning = false;
+
+      if (!items?.length) {
+        // 取消或识别失败：不覆盖已有的 codesText
+        if (!this.productItems.length) {
+          this.codesText = '未识别到商品代码';
+        }
+        return;
+      }
+      const valid = items.filter(i => i.code);
+      console.log('[OCR] 有效商品数:', valid.length);
+      if (!valid.length) {
+        this.codesText = '识别到结果但无商品代码，请重试';
+        return;
+      }
+      this.productItems = this._ocrAppend
+        ? [...this.productItems, ...valid]
+        : valid;
+      this.codesText = this.productItems
+        .map(i => i.desc ? `${i.code}: ${i.desc}` : i.code)
+        .join('  |  ');
+      console.log('[OCR] productItems 已更新，数量:', this.productItems.length);
+    },
 
     /* ══════════════════════════════════════════════════
        查询价格
     ══════════════════════════════════════════════════ */
     async queryPrices() {
-  if (!this.productItems.length) {
-    alert('请先使用 OCR 识别商品代码');
-    return;
-  }
-  if (!this.company) {
-    alert('请先在左上角选择公司（选择 Other 则使用默认价格列）');
-    return;
-  }
-  console.log('[Query] 开始查询', this.productItems.length, '个商品，公司:', this.company);
-  this.isQuerying = true;
-  try {
-    if (!window.pywebview?.api) {
-      throw new Error('pywebview 桥接未就绪，请重启程序');
-    }
-    const res = await window.pywebview.api.query_prices(
-      this.productItems, this.company
-    );
-    console.log('[Query] 返回结果数量:', res?.length, '第一条:', res?.[0]);
-    if (!Array.isArray(res) || res.length === 0) {
-      alert('查询完成但未返回数据，请检查数据库是否已通过 FullListUpdate 导入');
-      return;
-    }
-    this.queryResults = res;
-    const ok = updateQueryGrid(res);
-    if (!ok) {
-      alert('表格未能初始化，请尝试切换到"价目表"标签再切回来，或重启程序');
-    }
-  } catch (e) {
-    console.error('[Query] 出错:', e);
-    alert('查询出错: ' + String(e));
-  } finally {
-    this.isQuerying = false;
-  }
-},
+      if (!this.productItems.length) {
+        alert('请先使用 OCR 识别商品代码');
+        return;
+      }
+      if (!this.company) {
+        alert('请先在左上角选择公司（选择 Other 则使用默认价格列）');
+        return;
+      }
+      console.log('[Query] 开始查询', this.productItems.length, '个商品，公司:', this.company);
+      this.isQuerying = true;
+      try {
+        if (!window.pywebview?.api) {
+          throw new Error('pywebview 桥接未就绪，请重启程序');
+        }
+        const res = await window.pywebview.api.query_prices(
+          this.productItems, this.company
+        );
+        console.log('[Query] 返回结果数量:', res?.length, '第一条:', res?.[0]);
+        if (!Array.isArray(res) || res.length === 0) {
+          alert('查询完成但未返回数据。\n\n可能原因：\n1. 数据库尚未导入（请点击 FullListUpdate）\n2. 商品代码在数据库中不存在');
+          return;
+        }
+        this.queryResults = res;
+        const ok = updateQueryGrid(res);
+        if (!ok) {
+          // Grid 未初始化（极少见），等待后重试一次
+          console.warn('[Query] Grid API 未就绪，100ms 后重试');
+          await new Promise(r => setTimeout(r, 100));
+          const ok2 = updateQueryGrid(res);
+          if (!ok2) {
+            alert('表格渲染失败，请切换到其他标签再切回来，或重启程序');
+          }
+        }
+      } catch (e) {
+        console.error('[Query] 出错:', e);
+        alert('查询出错: ' + String(e));
+      } finally {
+        this.isQuerying = false;
+      }
+    },
 
     /* ══════════════════════════════════════════════════
        列显示
@@ -218,15 +248,24 @@ function App() {
        价目表
     ══════════════════════════════════════════════════ */
     async _loadPriceList() {
-      if (this._plLoadedFor === (this.company || '')) return;
+      const key = this.company || '';
+      if (this._plLoadedFor === key) return;  // 缓存命中
+
       this.priceStats = '加载中…';
       try {
-        const d = await window.pywebview.api.get_price_list(this.company || '');
+        const d = await window.pywebview.api.get_price_list(key);
+        if (!d || !d.cols || !d.rows) {
+          this.priceStats = '数据格式异常，请检查数据库';
+          return;
+        }
         updatePriceListGrid(d.cols, d.rows, this.colWidths);
-        this._plLoadedFor = this.company || '';
-        this.priceStats = `共 ${d.rows.length} 条`;
+        this._plLoadedFor = key;
+        this.priceStats = d.rows.length > 0
+          ? `共 ${d.rows.length} 条`
+          : '暂无数据（请先通过 FullListUpdate 导入）';
       } catch (e) {
-        this.priceStats = '加载失败: ' + e;
+        console.error('[PriceList] 加载失败:', e);
+        this.priceStats = '加载失败: ' + String(e);
       }
     },
 
@@ -253,6 +292,8 @@ function App() {
     async openPriceListForRow(rowIdx, rowData) {
       this.selectedRowIdx = rowIdx;
       this.activeTab = 'pricelist';
+      // _loadPriceList 由 $watch 触发，这里等待完成
+      await this._nextTick();
       await this._loadPriceList();
 
       this.priceListCallback = async selected => {

@@ -244,6 +244,17 @@ class OCREngine:
         cv = tk.Canvas(sel, cursor="cross", highlightthickness=0)
         cv.pack(fill=tk.BOTH, expand=True)
 
+        def _finish(result):
+            """在独立线程中回调并销毁 root，避免 evaluate_js 阻塞 tkinter 事件循环。"""
+            def _run():
+                try:
+                    on_result(result)
+                except Exception as ex:
+                    logging.error(f"[OCR] on_result 回调失败: {ex}")
+                finally:
+                    root.after(0, root.destroy)
+            threading.Thread(target=_run, daemon=True).start()
+
         def on_press(e):
             state.update(selecting=True, sx=e.x, sy=e.y)
             state["rect"] = cv.create_rectangle(
@@ -270,17 +281,17 @@ class OCREngine:
                     except Exception as ex:
                         logging.error(f"[OCR] 识别失败: {ex}")
                         result = []
-                    on_result(result)
-                    # 在 tkinter 线程里安全销毁 root
-                    root.after(0, root.destroy)
+                    _finish(result)
 
                 threading.Thread(target=_do, daemon=True).start()
             else:
-                root.destroy()
+                # 选区太小，视为取消——也要通知 JS 重置 isScanning
+                _finish([])
 
         def on_escape(e):
             sel.destroy()
-            root.destroy()
+            # 用户按 Escape 取消——通知 JS 重置 isScanning
+            _finish([])
 
         cv.bind("<ButtonPress-1>",   on_press)
         cv.bind("<B1-Motion>",       on_drag)
