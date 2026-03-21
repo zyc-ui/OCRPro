@@ -9,13 +9,14 @@ const COMPANY_COLS = new Set(['SINWA SGP','SSM 7SEA','Seven Seas','Wrist Far Eas
                                'Anchor Marine','RMS Marine','Fuji Trading','Con Lash']);
 const CODE_COLS    = new Set(['U8代码','IMPA代码','KERGER/IMATECH','NO']);
 const WRAP_COLS    = new Set(['描述','详情','报价','备注1','备注2','客户描述']);
+const FIXED_COLS   = new Set(['Item NO.','商品代码','客户描述','数量','UOM']);
 
 function cellClass(name) {
   const c = [];
   if (PRICE_COLS.has(name))   c.push('col-price');
   if (COMPANY_COLS.has(name)) c.push('col-company');
   if (CODE_COLS.has(name))    c.push('col-code');
-  if (WRAP_COLS.has(name))    c.push('col-wrap');
+  if (FIXED_COLS.has(name))   c.push('col-pin');
   return c;
 }
 function headerClass(name) {
@@ -24,76 +25,19 @@ function headerClass(name) {
   return '';
 }
 
-/* ───────── 查询结果表 ───────────────────────────────── */
-
-function buildQueryColDefs(app) {
-  const { flDisplay, colWidths, colVisibility, company } = app;
-
-  const fixed = [
-    { field: '_rn', headerName: '#', width: 42, minWidth: 42, maxWidth: 42,
-      pinned: 'left', sortable: false, filter: false, resizable: false,
-      cellClass: ['col-rownum','col-pin'],
-      valueGetter: p => p.node.rowIndex + 1 },
-    { field: 'Item NO.', headerName: 'Item NO.', width: 68, pinned: 'left',
-      cellClass: 'col-pin' },
-    { field: '商品代码',  headerName: '商品代码',  width: 140, pinned: 'left',
-      cellClass: ['col-code','col-pin'] },
-    { field: '客户描述',  headerName: '客户描述',  width: 260, pinned: 'left',
-      cellClass: ['col-pin'], wrapText: false },
-    { field: '数量', headerName: '数量', width: 65,  pinned: 'left', cellClass: 'col-pin' },
-    { field: 'UOM',  headerName: 'UOM',  width: 58,  pinned: 'left', cellClass: 'col-pin' },
-  ];
-
-  const dynamic = [];
-
-  /* 信息列 0-21（PRICE_COL_START_IDX = 22） */
-  for (let i = 0; i < 22; i++) {
-    const name = flDisplay[i];
-    if (name === undefined) continue;
-    if (!colVisibility[name]) continue;
-    dynamic.push({
-      field: name, headerName: name,
-      width: colWidths[name] || 110, minWidth: 40,
-      resizable: true,
-      cellClass: cellClass(name),
-      headerClass: headerClass(name),
-      wrapText: WRAP_COLS.has(name),
-    });
-  }
-
-  /* 价格列：公司列 or 通用 Cost/High/Medium */
-  if (company && COMPANY_COLS.has(company)) {
-    dynamic.push({
-      field: company, headerName: company,
-      width: colWidths[company] || 110, minWidth: 70,
-      resizable: true,
-      cellClass: ['col-company'],
-      headerClass: 'col-company-hdr',
-    });
-  } else {
-    ['Cost Price','High Price','Medium Price'].forEach(name => {
-      if (colVisibility[name] === false) return;
-      dynamic.push({
-        field: name, headerName: name,
-        width: colWidths[name] || 95, minWidth: 70,
-        resizable: true,
-        cellClass: ['col-price'],
-        headerClass: 'col-price-hdr',
-      });
-    });
-  }
-
-  return [...fixed, ...dynamic];
-}
+/* ══════════════════════════════════════════════════
+   查询结果表
+   initQueryGrid：初始化（列为空，等数据来了再建）
+   updateQueryResultGrid：完全仿照 updatePriceListGrid
+══════════════════════════════════════════════════ */
 
 function initQueryGrid(app) {
   const opts = {
-    columnDefs: buildQueryColDefs(app),
+    columnDefs: [],
     rowData: [],
     rowHeight: 34,
     headerHeight: 38,
     rowSelection: 'single',
-    suppressRowClickSelection: false,
     animateRows: false,
     suppressContextMenu: true,
     defaultColDef: { sortable: true, filter: false, resizable: true },
@@ -120,199 +64,81 @@ function initQueryGrid(app) {
   };
   queryGridApi = agGrid.createGrid(document.getElementById('queryGrid'), opts);
   app.queryGridApi = queryGridApi;
-  // 初始化后触发一次 resize，确保 pywebview 下高度计算正确
-  setTimeout(() => {
-    window.dispatchEvent(new Event('resize'));
-    if (queryGridApi) queryGridApi.sizeColumnsToFit();
-  }, 200);
-}
-
-function normalizeGridRows(rows) {
-  if (!Array.isArray(rows)) return [];
-  return rows.map(row => ({ ...(row || {}) }));
-}
-
-function updateQueryGrid(rows) {
-  console.log('[Grid] updateQueryGrid 调用, queryGridApi:', !!queryGridApi, '行数:', rows?.length);
-  if (!queryGridApi) {
-    console.error('[Grid] queryGridApi 为 null，表格未初始化');
-    return false;
-  }
-  try {
-    const normalizedRows = normalizeGridRows(rows);
-    queryGridApi.setGridOption('rowData', normalizedRows);
-    // 强制 AG Grid 重新计算视口尺寸（pywebview 嵌入式 Chromium 不会自动触发）
-    requestAnimationFrame(() => {
-      window.dispatchEvent(new Event('resize'));
-      if (queryGridApi) {
-        queryGridApi.refreshCells({ force: true });
-        queryGridApi.redrawRows();
-        // 兜底：强制重新计算布局，避免 CDN 样式未就绪导致“像没更新”
-        try { queryGridApi.doLayout(); } catch (e) {}
-        try { queryGridApi.refreshView(); } catch (e) {}
-        try { queryGridApi.resetRowHeights(); } catch (e) {}
-        queryGridApi.sizeColumnsToFit();
-        if (normalizedRows.length) {
-          queryGridApi.ensureIndexVisible(0, 'top');
-        }
-
-        // 调试：确认 Grid 实际显示行数
-        try {
-          const displayed = queryGridApi.getDisplayedRowCount();
-          console.log('[Grid] updateQueryGrid displayedRowCount:', displayed);
-          const el = document.getElementById('queryGrid');
-          if (el) {
-            const r = el.getBoundingClientRect();
-            console.log('[Grid] queryGrid height:', {
-              clientHeight: el.clientHeight,
-              rectHeight: r.height,
-              rectWidth: r.width,
-            });
-          }
-          // 调试：确认 DOM 层是否真的生成了行节点
-          const domRows = document.querySelectorAll('#queryGrid .ag-center-cols-container .ag-row');
-          console.log('[Grid] updateQueryGrid dom ag-row count:', domRows.length);
-          // 调试：确认第一行数据是否存在（排除“值都为空导致看起来像空”）
-          try {
-            const node0 = queryGridApi.getDisplayedRowAtIndex?.(0);
-            const data0 = node0?.data;
-            console.log('[Grid] updateQueryGrid row0 data:', data0);
-          } catch (e) {
-            console.warn('[Grid] updateQueryGrid 获取 row0 data 失败:', e);
-          }
-        } catch (e) {
-          console.warn('[Grid] updateQueryGrid 获取 displayedRowCount 失败:', e);
-        }
-      }
-    });
-    console.log('[Grid] rowData 更新成功');
-    return true;
-  } catch (e) {
-    console.error('[Grid] setGridOption 失败:', e);
-    return false;
-  }
 }
 
 /**
- * 先更新列定义，等 AG Grid 完成列重建（一个 rAF）后再设置 rowData。
- * 直接连续调用两次 setGridOption 会导致 rowData 在列尚未稳定时被丢弃。
+ * 用与 updatePriceListGrid 完全相同的方式渲染查询结果。
+ * cols  : 列名数组（Python 返回的 {cols, rows}.cols）
+ * rows  : 二维数组（Python 返回的 {cols, rows}.rows）
+ * colWidths : 列宽字典
  */
-function refreshQueryCols(app) {
-  if (!queryGridApi) return;
-  // 第一步：更新列定义
-  queryGridApi.setGridOption('columnDefs', buildQueryColDefs(app));
-  // 第二步：等列稳定后设置行数据（requestAnimationFrame ≈ 16ms）
-  requestAnimationFrame(() => {
-    if (queryGridApi && app.queryResults && app.queryResults.length) {
-      queryGridApi.setGridOption('rowData', normalizeGridRows(app.queryResults));
-      queryGridApi.refreshCells({ force: true });
-      queryGridApi.redrawRows();
-      try { queryGridApi.doLayout(); } catch (e) {}
-      try { queryGridApi.refreshView(); } catch (e) {}
-      try { queryGridApi.resetRowHeights(); } catch (e) {}
-      queryGridApi.ensureIndexVisible(0, 'top');
-      console.log('[Grid] refreshQueryCols → rowData 已在 rAF 后更新，行数:', app.queryResults.length);
+function updateQueryResultGrid(cols, rows, colWidths) {
+  if (!queryGridApi) {
+    console.error('[Grid] queryGridApi 未初始化');
+    return;
+  }
 
-      // 调试：确认 Grid 实际显示行数
-      try {
-        const displayed = queryGridApi.getDisplayedRowCount();
-        console.log('[Grid] refreshQueryCols displayedRowCount:', displayed);
-        const el = document.getElementById('queryGrid');
-        if (el) {
-          const r = el.getBoundingClientRect();
-          console.log('[Grid] queryGrid height:', {
-            clientHeight: el.clientHeight,
-            rectHeight: r.height,
-            rectWidth: r.width,
-          });
-        }
-      } catch (e) {
-        console.warn('[Grid] refreshQueryCols 获取 displayedRowCount 失败:', e);
-      }
-    }
+  console.log('[Grid] updateQueryResultGrid: cols =', cols.length, ' rows =', rows.length);
+
+  // ── 1. 把二维数组转成对象数组（与 updatePriceListGrid 一致） ──────────────
+  const rowData = rows.map(row => {
+    const obj = {};
+    cols.forEach((c, i) => { obj[c] = (row[i] ?? ''); });
+    return obj;
+  });
+
+  // ── 2. 构建列定义（固定列 pinned left，其余按分类着色） ────────────────────
+  const colDefs = cols.map(name => ({
+    field:       name,
+    headerName:  name,
+    width:       colWidths[name] || (FIXED_COLS.has(name) ? 130 : 110),
+    minWidth:    40,
+    resizable:   true,
+    pinned:      FIXED_COLS.has(name) ? 'left' : null,
+    cellClass:   cellClass(name),
+    headerClass: headerClass(name),
+    wrapText:    WRAP_COLS.has(name),
+  }));
+
+  // ── 3. 先设列定义，用 rAF 等一帧后再设行数据（与价目表完全相同的时序） ────
+  queryGridApi.setGridOption('columnDefs', colDefs);
+  requestAnimationFrame(() => {
+    queryGridApi.setGridOption('rowData', rowData);
+    console.log('[Grid] rowData 已写入，行数:', rowData.length);
   });
 }
 
-function syncQueryGrid(app, rows) {
-  if (!queryGridApi) {
-    console.error('[Grid] syncQueryGrid 失败: queryGridApi 尚未初始化');
-    return false;
-  }
-  const normalizedRows = normalizeGridRows(rows);
-  queryGridApi.setGridOption('columnDefs', buildQueryColDefs(app));
-  requestAnimationFrame(() => {
-    if (!queryGridApi) return;
-    queryGridApi.setGridOption('rowData', normalizedRows);
-    queryGridApi.refreshCells({ force: true });
-    queryGridApi.redrawRows();
-    // 兜底：强制重新计算布局，避免 CDN 样式/布局时序问题
-    try { queryGridApi.doLayout(); } catch (e) {}
-    try { queryGridApi.refreshView(); } catch (e) {}
-    try { queryGridApi.resetRowHeights(); } catch (e) {}
-    window.dispatchEvent(new Event('resize'));
-    queryGridApi.sizeColumnsToFit();
-    if (normalizedRows.length) {
-      queryGridApi.ensureIndexVisible(0, 'top');
-    }
-
-     // 调试：确认 Grid 实际显示行数
-     try {
-       const displayed = queryGridApi.getDisplayedRowCount();
-       console.log('[Grid] syncQueryGrid displayedRowCount:', displayed);
-       const el = document.getElementById('queryGrid');
-       if (el) {
-         const r = el.getBoundingClientRect();
-         console.log('[Grid] queryGrid height:', {
-           clientHeight: el.clientHeight,
-           rectHeight: r.height,
-           rectWidth: r.width,
-         });
-       }
-
-       // 调试：确认 DOM 层是否真的生成了行节点（用于排除“值在模型里但不渲染”）
-       const domRows = document.querySelectorAll('#queryGrid .ag-center-cols-container .ag-row');
-       console.log('[Grid] syncQueryGrid dom ag-row count:', domRows.length);
-       if (domRows.length) {
-         const row0 = domRows[0];
-         const st = window.getComputedStyle(row0);
-         console.log('[Grid] syncQueryGrid row0 computed style:', {
-           display: st.display,
-           visibility: st.visibility,
-           opacity: st.opacity,
-           color: st.color,
-           backgroundColor: st.backgroundColor,
-           height: st.height,
-         });
-       }
-
-       // 调试：确认第一行数据是否存在
-       try {
-         const node0 = queryGridApi.getDisplayedRowAtIndex?.(0);
-         console.log('[Grid] syncQueryGrid row0 data:', node0?.data);
-       } catch (e) {}
-     } catch (e) {
-       console.warn('[Grid] syncQueryGrid 获取 displayedRowCount 失败:', e);
-     }
-    console.log('[Grid] syncQueryGrid 完成，行数:', normalizedRows.length);
-  });
+/* 保留旧函数名供其他地方调用（内部转发给新函数） */
+function updateQueryGrid(rows) {
+  if (!queryGridApi) return false;
+  queryGridApi.setGridOption('rowData', rows);
   return true;
 }
 
-/* ───────── 价目表 ───────────────────────────────────── */
+function refreshQueryCols(app) {
+  /* 新方案中列定义由 updateQueryResultGrid 负责，此函数保持为空即可 */
+}
 
-let _plData   = [];   /* 原始数组（供搜索使用） */
+/* ══════════════════════════════════════════════════
+   价目表（保持不变）
+══════════════════════════════════════════════════ */
+
+let _plData   = [];
 let _plCols   = [];
-let _matchIdx = [];   /* 匹配行索引 */
+let _matchIdx = [];
 
 function buildPriceListColDefs(cols, colWidths) {
   return cols.map(name => ({
-    field: name, headerName: name,
-    width: colWidths[name] || 110, minWidth: 40,
-    resizable: true, sortable: true,
-    pinned: (name === 'U8代码' || name === 'IMPA代码') ? 'left' : null,
-    cellClass: cellClass(name),
+    field:       name,
+    headerName:  name,
+    width:       colWidths[name] || 110,
+    minWidth:    40,
+    resizable:   true,
+    sortable:    true,
+    pinned:      (name === 'U8代码' || name === 'IMPA代码') ? 'left' : null,
+    cellClass:   cellClass(name),
     headerClass: headerClass(name),
-    wrapText: WRAP_COLS.has(name),
+    wrapText:    WRAP_COLS.has(name),
   }));
 }
 
@@ -328,7 +154,7 @@ function initPriceListGrid(app) {
     animateRows: false,
     defaultColDef: { sortable: true, filter: true, resizable: true },
     rowClassRules: {
-      'row-matched': p  => _matchIdx.includes(p.rowIndex),
+      'row-matched': p => _matchIdx.includes(p.rowIndex),
     },
     onRowDoubleClicked(p) {
       if (window.appState && window.appState.priceListCallback) {
@@ -350,19 +176,18 @@ function updatePriceListGrid(cols, rows, colWidths) {
     return o;
   });
   priceListGridApi.setGridOption('columnDefs', buildPriceListColDefs(cols, colWidths));
-  priceListGridApi.setGridOption('rowData', _plData);
+  requestAnimationFrame(() => {
+    priceListGridApi.setGridOption('rowData', _plData);
+  });
 }
 
-/* 权重搜索 */
+/* ── 搜索 ────────────────────────────────────────── */
 const SCORE_W = { '描述': 3, '详情': 3, '报价': 3, '备注1': 2, '备注2': 2 };
 
 function searchPriceList(keywords) {
   if (!priceListGridApi || !_plData.length) return 0;
   _matchIdx = [];
-  if (!keywords.length) {
-    priceListGridApi.redrawRows();
-    return 0;
-  }
+  if (!keywords.length) { priceListGridApi.redrawRows(); return 0; }
   _plData.forEach((row, i) => {
     let score = 0;
     _plCols.forEach(col => {
