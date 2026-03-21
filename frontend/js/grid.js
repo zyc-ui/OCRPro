@@ -153,6 +153,12 @@ function initPriceListGrid(app) {
     suppressContextMenu: true,
     animateRows: false,
     defaultColDef: { sortable: true, filter: true, resizable: true },
+
+    // ← 新增：Grid 就绪时自适应列宽
+    onGridReady(params) {
+      params.api.sizeColumnsToFit();
+    },
+
     rowClassRules: {
       'row-matched': p => _matchIdx.includes(p.rowIndex),
     },
@@ -164,7 +170,7 @@ function initPriceListGrid(app) {
     },
   };
   priceListGridApi = agGrid.createGrid(document.getElementById('priceListGrid'), opts);
-  app.priceListGridApi = priceListGridApi;
+  app.priceListGridApi = priceListGridApi;  // 现在 app 里声明了此属性，Alpine 能响应
 }
 
 function updatePriceListGrid(cols, rows, colWidths) {
@@ -178,6 +184,10 @@ function updatePriceListGrid(cols, rows, colWidths) {
   priceListGridApi.setGridOption('columnDefs', buildPriceListColDefs(cols, colWidths));
   requestAnimationFrame(() => {
     priceListGridApi.setGridOption('rowData', _plData);
+    // 数据写入后强制重算列宽（修复高度为0时初始化的后遗症）
+    requestAnimationFrame(() => {
+      priceListGridApi.sizeColumnsToFit();
+    });
   });
 }
 

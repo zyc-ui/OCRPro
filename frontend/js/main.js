@@ -27,6 +27,8 @@ function App() {
     priceStats:       '',
     rowLines:         3,
     _plLoadedFor:     null,
+    priceListGridApi: null,
+    queryGridApi:     null,
     _plGridInited:    false,
     priceListCallback: null,
 
@@ -69,16 +71,21 @@ function App() {
       // 价目表 Grid：延迟到第一次切换时初始化
       this.$watch('activeTab', async tab => {
         if (tab === 'pricelist') {
-          await this._nextTick();
-          if (!this._plGridInited) {
-            initPriceListGrid(this);
-            this._plGridInited = true;
-            await new Promise(r => setTimeout(r, 80));
-          }
-          await this._loadPriceList();
-          resizeGrid(this.priceListGridApi);
+            // 用 requestAnimationFrame 等浏览器完成布局，而非 0ms timeout
+            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+            if (!this._plGridInited) {
+              initPriceListGrid(this);
+              this._plGridInited = true;
+              // 再等一帧，让 AG Grid 完成内部初始化
+              await new Promise(r => requestAnimationFrame(r));
+            }
+            await this._loadPriceList();
+
+            // 用模块级变量而非 this.priceListGridApi
+            resizeGrid(priceListGridApi);
         }
-        if (tab === 'query') resizeGrid(this.queryGridApi);
+        if (tab === 'query') resizeGrid(queryGridApi);
       });
     },
 
