@@ -6,10 +6,7 @@
   <title>UMIHOSHI</title>
   <link rel="icon" href="../images/app_icon.ico" sizes="any"/>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="vendor/ag-grid.css"/>
-  <link rel="stylesheet" href="vendor/ag-theme-alpine.css"/>
-  <script src="vendor/ag-grid-community.min.js"></script>
-  <script defer src="vendor/alpinejs.cdn.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
   <link rel="stylesheet" href="style.css"/>
   <style type="text/tailwindcss">
     @layer components {
@@ -23,7 +20,6 @@
     html, body { height: 100%; margin: 0; }
     body { display: flex; flex-direction: column; overflow: hidden; }
 
-    /* 内容区 */
     .content-wrapper {
       flex: 1;
       display: flex;
@@ -40,24 +36,70 @@
       min-height: 0;
     }
 
-    /* AG Grid 容器：明确撑满父容器剩余空间 */
     #queryGrid {
       flex: 1 1 0;
       min-height: 0;
       width: 100%;
-      overflow: hidden;
+      overflow: auto;
+      border: 1px solid #e2e8f0;
     }
     #priceListGrid {
       flex: 1 1 0;
       min-height: 0;
       width: 100%;
-      overflow: hidden;
+      overflow: auto;
+      border: 1px solid #e2e8f0;
     }
 
     #global-panel {
       flex: 1;
       overflow: auto;
     }
+
+    /* ── 通用表格样式 ── */
+    .sg-table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 12px;
+      font-family: -apple-system, 'Helvetica Neue', sans-serif;
+    }
+    .sg-thead { position: sticky; top: 0; z-index: 10; }
+    .sg-th {
+      padding: 7px 10px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+      border-right: 1px solid #334155;
+      border-bottom: 2px solid #1e293b;
+      background: #1e293b;
+      color: #f1f5f9;
+      user-select: none;
+    }
+    .sg-th.col-price-hdr  { background: #1d4ed8; }
+    .sg-th.col-company-hdr { background: #15803d; }
+
+    .sg-td {
+      padding: 5px 10px;
+      font-size: 12px;
+      border-right: 1px solid #e2e8f0;
+      border-bottom: 1px solid #e2e8f0;
+      vertical-align: top;
+      color: #1e293b;
+      white-space: nowrap;
+    }
+    .sg-td.col-price   { background: #eff6ff; }
+    .sg-td.col-company { background: #f0fdf4; }
+    .sg-td.col-code    { font-family: 'Consolas', monospace; font-size: 11px; color: #475569; }
+    .sg-td.col-wrap    { white-space: pre-wrap; word-break: break-word; max-width: 300px; }
+
+    .sg-row { cursor: pointer; }
+    .sg-row-even { background: #ffffff; }
+    .sg-row-odd  { background: #f8fafc; }
+    .sg-row:hover .sg-td  { background: #f0f4ff !important; color: #1e293b !important; }
+    .sg-row.row-selected .sg-td { background: #dbeafe !important; color: #1e293b !important; }
+    .sg-row.row-not-found .sg-td { color: #ef4444 !important; background: #fff5f5 !important; }
+    .sg-row.row-matched .sg-td  { background: #fef9c3 !important; }
   </style>
 </head>
 
@@ -70,7 +112,6 @@
     <span class="text-sm font-bold text-slate-700 tracking-wide select-none mr-1">UMIHOSHI</span>
     <div class="w-px h-5 bg-slate-200 mx-1"></div>
 
-    <!-- Company Selector -->
     <label class="text-xs text-slate-400 font-medium">公司</label>
     <select x-model="company" @change="onCompanyChange()"
             class="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 w-36">
@@ -82,7 +123,6 @@
 
     <div class="w-px h-5 bg-slate-200 mx-1"></div>
 
-    <!-- Action buttons -->
     <button @click="startOCR(false)" :disabled="isScanning" class="btn-blue">
       <span x-show="!isScanning">OCR识别</span>
       <span x-show="isScanning" class="flex items-center gap-1">
@@ -135,9 +175,8 @@
   <!-- ═══ CONTENT ═══ -->
   <div class="content-wrapper">
 
-    <!-- ── 价格查询 ────────────────────────────────── -->
+    <!-- ── 价格查询 ── -->
     <div id="query-panel" x-show="activeTab === 'query'">
-      <!-- Column toggles -->
       <div class="flex items-center gap-x-3 gap-y-1 px-3 py-1.5 bg-white border-b border-slate-100 flex-shrink-0 overflow-x-auto flex-wrap">
         <span class="text-xs text-slate-400 flex-shrink-0">显示列:</span>
         <template x-for="col in infoColNames" :key="col">
@@ -150,16 +189,14 @@
           </label>
         </template>
         <div class="flex-1"></div>
-        <button @click="addBlankRow()"      class="btn-ghost text-xs py-0.5">＋ 行</button>
+        <button @click="addBlankRow()"       class="btn-ghost text-xs py-0.5">＋ 行</button>
         <button @click="removeSelectedRow()" class="btn-ghost text-xs py-0.5">－ 行</button>
       </div>
-      <!-- Query AG Grid -->
-      <div id="queryGrid" class="ag-theme-alpine"></div>
+      <div id="queryGrid"></div>
     </div>
 
-    <!-- ── 价目表 ──────────────────────────────────── -->
+    <!-- ── 价目表 ── -->
     <div id="pricelist-panel" x-show="activeTab === 'pricelist'">
-      <!-- Search bar -->
       <div class="flex items-center gap-2 px-3 py-2 bg-white border-b border-slate-100 flex-shrink-0">
         <input type="text" x-model="priceSearch"
                @keydown.enter="onPriceSearch()"
@@ -174,11 +211,10 @@
         <button @click="changeRowLines(1)"  class="btn-ghost text-xs w-6 h-6 p-0 flex items-center justify-center">＋</button>
         <span class="text-xs text-slate-400 ml-1 min-w-32" x-text="priceStats"></span>
       </div>
-      <!-- PriceList AG Grid -->
-      <div id="priceListGrid" class="ag-theme-alpine"></div>
+      <div id="priceListGrid"></div>
     </div>
 
-    <!-- ── 全局搜索 ─────────────────────────────────── -->
+    <!-- ── 全局搜索 ── -->
     <div id="global-panel" x-show="activeTab === 'global'" class="p-4 overflow-auto">
       <div class="flex items-center gap-3 mb-3 max-w-2xl">
         <input type="text" x-model="globalKeyword"
