@@ -17,89 +17,124 @@
     }
   </style>
   <style>
-    html, body { height: 100%; margin: 0; }
-    body { display: flex; flex-direction: column; overflow: hidden; }
+    /* ══ 布局 ══════════════════════════════════════════════ */
+    html, body { height:100%; margin:0; }
+    body { display:flex; flex-direction:column; overflow:hidden; }
 
     .content-wrapper {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      min-height: 0;
+      flex:1; display:flex; flex-direction:column;
+      overflow:hidden; min-height:0;
     }
 
     #query-panel, #pricelist-panel {
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-      overflow: hidden;
-      min-height: 0;
+      display:flex; flex-direction:column;
+      flex:1; overflow:hidden; min-height:0;
     }
 
-    #queryGrid {
-      flex: 1 1 0;
-      min-height: 0;
-      width: 100%;
-      overflow: auto;
-      border: 1px solid #e2e8f0;
-    }
-    #priceListGrid {
-      flex: 1 1 0;
-      min-height: 0;
-      width: 100%;
-      overflow: auto;
-      border: 1px solid #e2e8f0;
+    #queryGrid, #priceListGrid {
+      flex:1 1 0; min-height:0; width:100%;
+      overflow:auto;
+      border:1px solid #e2e8f0;
+      /* 禁用 Alpine 的过渡动画，消除切换卡顿 */
+      will-change:scroll-position;
     }
 
-    #global-panel {
-      flex: 1;
-      overflow: auto;
-    }
+    #global-panel { flex:1; overflow:auto; }
 
-    /* ── 通用表格样式 ── */
+    /* ══ 表格核心 ════════════════════════════════════════════ */
     .sg-table {
+      table-layout: fixed;      /* 固定布局：列宽由 <col> 控制，其他列不受拖拽影响 */
       border-collapse: collapse;
-      width: 100%;
       font-size: 12px;
       font-family: -apple-system, 'Helvetica Neue', sans-serif;
+      /* width 由 JS 动态设置 */
     }
-    .sg-thead { position: sticky; top: 0; z-index: 10; }
+
+    /* ══ 表头 ════════════════════════════════════════════════ */
+    .sg-thead { position:sticky; top:0; z-index:10; }
+
     .sg-th {
-      padding: 7px 10px;
+      padding: 7px 10px 7px 8px;
       text-align: left;
       font-size: 11px;
       font-weight: 600;
       white-space: nowrap;
+      overflow: hidden;
       border-right: 1px solid #334155;
       border-bottom: 2px solid #1e293b;
       background: #1e293b;
       color: #f1f5f9;
       user-select: none;
+      box-sizing: border-box;
     }
-    .sg-th.col-price-hdr  { background: #1d4ed8; }
-    .sg-th.col-company-hdr { background: #15803d; }
+    .sg-th-text { display:block; overflow:hidden; text-overflow:ellipsis; }
 
+    /* 前5列（客户内容）— 深绿表头 */
+    .sg-th.col-fixed-hdr   { background:#166534; color:#f0fdf4; border-right-color:#14532d; }
+    /* 价格列 — 蓝色表头 */
+    .sg-th.col-price-hdr   { background:#1d4ed8; border-right-color:#1e40af; }
+    /* 公司列 — 绿色表头 */
+    .sg-th.col-company-hdr { background:#15803d; border-right-color:#14532d; }
+
+    /* ── resize handle ─────────────────────────────────── */
+    .sg-resize-handle {
+      position: absolute;
+      right: 0; top: 0;
+      width: 5px; height: 100%;
+      cursor: col-resize;
+      background: transparent;
+      z-index: 2;
+    }
+    .sg-resize-handle:hover { background: rgba(255,255,255,0.25); }
+
+    /* ══ 数据单元格 ══════════════════════════════════════════ */
     .sg-td {
-      padding: 5px 10px;
+      padding: 4px 8px;
       font-size: 12px;
       border-right: 1px solid #e2e8f0;
       border-bottom: 1px solid #e2e8f0;
       vertical-align: top;
       color: #1e293b;
+      box-sizing: border-box;
+      overflow: hidden;
+      /* 默认不换行，超出省略 */
       white-space: nowrap;
+      text-overflow: ellipsis;
     }
-    .sg-td.col-price   { background: #eff6ff; }
-    .sg-td.col-company { background: #f0fdf4; }
-    .sg-td.col-code    { font-family: 'Consolas', monospace; font-size: 11px; color: #475569; }
-    .sg-td.col-wrap    { white-space: pre-wrap; word-break: break-word; max-width: 300px; }
 
-    .sg-row { cursor: pointer; }
-    .sg-row-even { background: #ffffff; }
-    .sg-row-odd  { background: #f8fafc; }
-    .sg-row:hover .sg-td  { background: #f0f4ff !important; color: #1e293b !important; }
-    .sg-row.row-selected .sg-td { background: #dbeafe !important; color: #1e293b !important; }
-    .sg-row.row-not-found .sg-td { color: #ef4444 !important; background: #fff5f5 !important; }
-    .sg-row.row-matched .sg-td  { background: #fef9c3 !important; }
+    /* 前5列 — 浅绿背景（客户内容区） */
+    .sg-td.col-fixed-5   { background: #f0fdf4; }
+    /* 价格列 — 浅蓝 */
+    .sg-td.col-price     { background: #eff6ff; }
+    /* 公司列 — 浅绿 */
+    .sg-td.col-company   { background: #f0fdf4; }
+    /* 代码列 — 等宽字体 */
+    .sg-td.col-code      { font-family:'Consolas','SF Mono',monospace; font-size:11px; color:#475569; }
+    /* 换行列（描述/报价/备注等）— 允许换行，超出高度裁剪 */
+    .sg-td.col-wrap {
+      white-space: pre-wrap;
+      word-break: break-word;
+      text-overflow: clip;
+    }
+
+    /* ══ 行状态 ══════════════════════════════════════════════ */
+    .sg-spacer { background:transparent; border:none; }
+    .sg-row    { cursor:pointer; }
+    .sg-row-even .sg-td { background-color:#ffffff; }
+    /* 前5列 / 价格 / 公司 覆盖偶数行底色 */
+    .sg-row-even .sg-td.col-fixed-5   { background:#f0fdf4; }
+    .sg-row-even .sg-td.col-price     { background:#eff6ff; }
+    .sg-row-even .sg-td.col-company   { background:#f0fdf4; }
+
+    .sg-row-odd .sg-td { background-color:#f8fafc; }
+    .sg-row-odd .sg-td.col-fixed-5   { background:#e7faf0; }
+    .sg-row-odd .sg-td.col-price     { background:#e8f0fd; }
+    .sg-row-odd .sg-td.col-company   { background:#e7faf0; }
+
+    .sg-row:hover .sg-td              { background:#f0f4ff !important; color:#1e293b !important; }
+    .sg-row.row-selected .sg-td       { background:#dbeafe !important; color:#1e293b !important; }
+    .sg-row.row-not-found .sg-td      { color:#ef4444 !important; background:#fff5f5 !important; }
+    .sg-row.row-matched .sg-td        { background:#fef9c3 !important; }
   </style>
 </head>
 

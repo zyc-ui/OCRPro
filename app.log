@@ -29,3 +29,584 @@
 
 34,00 795178 DESOLDERING GUN VACUUM SUCTION TYPE 1.00 PCS
 2026-03-20 17:54:55,348 [DEBUG] root: [OCR] 最终配对: [('10.00', '795174', 'SOLDERING PASTE 50GRM', '2.00', 'TIN'), ('34,00', '795178', 'DESOLDERING GUN VACUUM SUCTION TYPE', '1.00', 'PCS')]
+2026-03-20 21:40:08,553 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_l40aw41u_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_l40aw41u', '-l', 'eng+chi_sim', 'txt']
+2026-03-20 21:40:08,755 [DEBUG] root: [OCR] 原始文本:
+25.00 790713 LAMP PILOT MINIATURE S5.5S18 28V 0.04A 5.5X16MM 10.00 PCS
+
+26.00 790774 LAMP INDICATOR SINGLE LED BA9S, 10X24MM 24-28VOLT WHITE 10.00 PCS
+2026-03-20 21:40:08,757 [DEBUG] root: [OCR] 最终配对: [('25.00', '790713', 'LAMP PILOT MINIATURE S5.5S18 28V 0.04A 5.5X16MM', '10.00', 'PCS'), ('26.00', '790774', 'LAMP INDICATOR SINGLE LED BA9S, 10X24MM 24-28VOLT WHITE', '10.00', 'PCS')]
+2026-03-20 21:58:25,245 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_ahdo254p_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_ahdo254p', '-l', 'eng+chi_sim', 'txt']
+2026-03-20 21:58:25,688 [DEBUG] root: [OCR] 原始文本:
+25.00 790713 LAMP PILOT MINIATURE S5.5S18 28V 0.04A 5.5X16MM 10.00 PCS
+
+26.00 790774 LAMP INDICATOR SINGLE LED BAQS, 10X24MM 24-28VOLT WHITE 10.00 PCS
+2026-03-20 21:58:25,691 [DEBUG] root: [OCR] 最终配对: [('25.00', '790713', 'LAMP PILOT MINIATURE S5.5S18 28V 0.04A 5.5X16MM', '10.00', 'PCS'), ('26.00', '790774', 'LAMP INDICATOR SINGLE LED BAQS, 10X24MM 24-28VOLT WHITE', '10.00', 'PCS')]
+2026-03-20 22:02:26,840 [WARNING] pywebview: OPEN_DIALOG is deprecated and will be removed in a future version. Use 'FileDialog.OPEN' instead.
+2026-03-20 22:02:26,840 [WARNING] pywebview: OPEN_DIALOG is deprecated and will be removed in a future version. Use 'FileDialog.OPEN' instead.
+2026-03-20 22:11:45,617 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_xsifk5vm_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_xsifk5vm', '-l', 'eng+chi_sim', 'txt']
+2026-03-20 22:11:45,957 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9,00 790434 LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD 50.00 PCS
+2026-03-20 22:11:45,963 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9,00', '790434', 'LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD', '50.00', 'PCS')]
+2026-03-20 22:11:48,669 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 22:11:48,669 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:11:48,671 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:15:26,546 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-20 22:15:26,609 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-20 22:15:26,610 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-20 22:15:28,735 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-20 22:15:28,737 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-20 22:15:28,773 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-20 22:15:28,783 [DEBUG] pywebview: loaded event fired
+2026-03-20 22:16:10,480 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_fboqpgz0_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_fboqpgz0', '-l', 'eng+chi_sim', 'txt']
+2026-03-20 22:16:10,840 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9,00 790434 LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD 50.00 PCS
+2026-03-20 22:16:10,842 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9,00', '790434', 'LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD', '50.00', 'PCS')]
+2026-03-20 22:16:13,000 [INFO] root: [API] query_prices 调用: 2 条, 公司='SINWA SGP'
+2026-03-20 22:16:13,001 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:16:13,004 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:21:05,473 [INFO] root: [API] query_prices 调用: 2 条, 公司='SINWA SGP'
+2026-03-20 22:21:05,474 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:21:05,476 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:21:07,430 [INFO] root: [API] query_prices 调用: 2 条, 公司='SINWA SGP'
+2026-03-20 22:21:07,430 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:21:07,433 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:21:07,648 [INFO] root: [API] query_prices 调用: 2 条, 公司='SINWA SGP'
+2026-03-20 22:21:07,648 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:21:07,651 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:24:50,738 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_ah16s807_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_ah16s807', '-l', 'eng+chi_sim', 'txt']
+2026-03-20 22:24:51,087 [DEBUG] root: [OCR] 原始文本:
+9,00 790434 LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD 50.00 PCS
+
+25,00 790713 LAMP PILOT MINIATURE $5.5S18 28V 0.04A 5.5X16MM 10.00 PCS
+2026-03-20 22:24:51,090 [DEBUG] root: [OCR] 最终配对: [('9,00', '790434', 'LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD', '50.00', 'PCS'), ('25,00', '790713', 'LAMP PILOT MINIATURE $5.5S18 28V 0.04A 5.5X16MM', '10.00', 'PCS')]
+2026-03-20 22:24:53,466 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 22:24:53,466 [INFO] root: [API] items[0]={'item_no': '9,00', 'code': '790434', 'desc': 'LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:24:53,470 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:25:11,511 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 22:25:11,511 [INFO] root: [API] items[0]={'item_no': '9,00', 'code': '790434', 'desc': 'LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:25:11,513 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:25:13,769 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 22:25:13,770 [INFO] root: [API] items[0]={'item_no': '9,00', 'code': '790434', 'desc': 'LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:25:13,773 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:26:33,429 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_d4swtmp9_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_d4swtmp9', '-l', 'eng+chi_sim', 'txt']
+2026-03-20 22:26:33,789 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9.00 790434 LAMP NAVIGATION TUBULAR P-285 220V 65W 60CD. 50.00 PCS
+2026-03-20 22:26:33,793 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9.00', '790434', 'LAMP NAVIGATION TUBULAR P-285 220V 65W 60CD.', '50.00', 'PCS')]
+2026-03-20 22:26:35,786 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 22:26:35,786 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:26:35,789 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:26:36,016 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 22:26:36,016 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:26:36,020 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:26:36,190 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 22:26:36,190 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:26:36,193 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:26:36,354 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 22:26:36,354 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:26:36,357 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:26:36,512 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 22:26:36,512 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:26:36,514 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:26:36,676 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 22:26:36,676 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:26:36,680 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:29:16,556 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_jpaosvvz_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_jpaosvvz', '-l', 'eng+chi_sim', 'txt']
+2026-03-20 22:29:16,943 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9,00 790434 LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD 50.00 PCS
+2026-03-20 22:29:16,946 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9,00', '790434', 'LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD', '50.00', 'PCS')]
+2026-03-20 22:29:20,151 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 22:29:20,151 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:29:20,154 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:29:20,353 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 22:29:20,354 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:29:20,357 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:29:20,526 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 22:29:20,527 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:29:20,529 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:29:20,915 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 22:29:20,915 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:29:20,918 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:29:21,096 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 22:29:21,096 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:29:21,099 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:29:21,268 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 22:29:21,269 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:29:21,272 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:29:21,456 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 22:29:21,456 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:29:21,459 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:29:21,824 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 22:29:21,824 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:29:21,827 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:30:56,295 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-20 22:30:56,343 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-20 22:30:56,343 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-20 22:30:58,379 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-20 22:30:58,380 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-20 22:30:58,408 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-20 22:30:58,418 [DEBUG] pywebview: loaded event fired
+2026-03-20 22:31:05,621 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_h7nfrc3w_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_h7nfrc3w', '-l', 'eng+chi_sim', 'txt']
+2026-03-20 22:31:05,985 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9,00 790434 LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD 50.00 PCS
+
+25.00 790713 LAMP PILOT MINIATURE S5.5S18 28V 0.04A 5.5X16MM 10.00 PCS
+2026-03-20 22:31:05,989 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9,00', '790434', 'LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD', '50.00', 'PCS'), ('25.00', '790713', 'LAMP PILOT MINIATURE S5.5S18 28V 0.04A 5.5X16MM', '10.00', 'PCS')]
+2026-03-20 22:31:07,737 [INFO] root: [API] query_prices 调用: 3 条, 公司='Other'
+2026-03-20 22:31:07,737 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:31:07,741 [INFO] root: [API] query_prices 返回 3 条
+2026-03-20 22:31:25,641 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_lnyho9py_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_lnyho9py', '-l', 'eng+chi_sim', 'txt']
+2026-03-20 22:31:26,020 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9,00 790434 LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD 50.00 PCS
+
+25.00 790713 LAMP PILOT MINIATURE S5.5S18 28V 0.04A 5.5X16MM 10.00 PCS
+2026-03-20 22:31:26,020 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9,00', '790434', 'LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD', '50.00', 'PCS'), ('25.00', '790713', 'LAMP PILOT MINIATURE S5.5S18 28V 0.04A 5.5X16MM', '10.00', 'PCS')]
+2026-03-20 22:31:27,418 [INFO] root: [API] query_prices 调用: 3 条, 公司='Other'
+2026-03-20 22:31:27,418 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:31:27,422 [INFO] root: [API] query_prices 返回 3 条
+2026-03-20 22:37:45,706 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-20 22:37:45,754 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-20 22:37:45,755 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-20 22:37:47,949 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-20 22:37:47,950 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-20 22:37:47,986 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-20 22:37:48,001 [DEBUG] pywebview: loaded event fired
+2026-03-20 22:37:59,142 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess__2r_3qjf_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess__2r_3qjf', '-l', 'eng+chi_sim', 'txt']
+2026-03-20 22:37:59,479 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9,00 790434 LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD 50.00 PCS
+2026-03-20 22:37:59,481 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9,00', '790434', 'LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD', '50.00', 'PCS')]
+2026-03-20 22:38:01,453 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 22:38:01,454 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:38:01,457 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:44:05,784 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-20 22:44:05,829 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-20 22:44:05,829 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-20 22:44:07,987 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-20 22:44:07,988 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-20 22:44:08,022 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-20 22:44:08,036 [DEBUG] pywebview: loaded event fired
+2026-03-20 22:44:16,848 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_zi1n5yxn_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_zi1n5yxn', '-l', 'eng+chi_sim', 'txt']
+2026-03-20 22:44:17,203 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9,00 790434 LAMP NAVIGATION TUBULAR P-285 220V 65W 60CD 50.00 PCS
+2026-03-20 22:44:17,207 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9,00', '790434', 'LAMP NAVIGATION TUBULAR P-285 220V 65W 60CD', '50.00', 'PCS')]
+2026-03-20 22:44:19,113 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 22:44:19,114 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:44:19,116 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:44:27,041 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 22:44:27,041 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:44:27,044 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:44:29,471 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 22:44:29,471 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:44:29,475 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:44:32,421 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 22:44:32,421 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 22:44:32,424 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 22:44:38,194 [WARNING] pywebview: OPEN_DIALOG is deprecated and will be removed in a future version. Use 'FileDialog.OPEN' instead.
+2026-03-20 22:44:38,194 [WARNING] pywebview: OPEN_DIALOG is deprecated and will be removed in a future version. Use 'FileDialog.OPEN' instead.
+2026-03-20 22:48:28,607 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-20 22:48:28,656 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-20 22:48:28,656 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-20 22:48:30,777 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-20 22:48:30,778 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-20 22:48:30,810 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-20 22:48:30,821 [DEBUG] pywebview: loaded event fired
+2026-03-20 23:00:30,951 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-20 23:00:30,998 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-20 23:00:30,998 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-20 23:00:33,204 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-20 23:00:33,205 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-20 23:00:33,237 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-20 23:00:33,250 [DEBUG] pywebview: loaded event fired
+2026-03-20 23:00:43,435 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_36za61vs_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_36za61vs', '-l', 'eng+chi_sim', 'txt']
+2026-03-20 23:00:43,869 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9,00 790434 LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD 50.00 PCS
+2026-03-20 23:00:43,875 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9,00', '790434', 'LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD', '50.00', 'PCS')]
+2026-03-20 23:00:45,332 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 23:00:45,332 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 23:00:45,336 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 23:09:09,965 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-20 23:09:10,012 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-20 23:09:10,012 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-20 23:09:12,073 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-20 23:09:12,073 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-20 23:09:12,105 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-20 23:09:12,118 [DEBUG] pywebview: loaded event fired
+2026-03-20 23:09:24,504 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_1dmw1mtg_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_1dmw1mtg', '-l', 'eng+chi_sim', 'txt']
+2026-03-20 23:09:24,876 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9,00 790434 LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD 50.00 PCS
+2026-03-20 23:09:24,878 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9,00', '790434', 'LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD', '50.00', 'PCS')]
+2026-03-20 23:09:26,110 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 23:09:26,110 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 23:09:26,113 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 23:09:27,376 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 23:09:27,376 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 23:09:27,379 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 23:09:32,528 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 23:09:32,529 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 23:09:32,531 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 23:19:41,747 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-20 23:19:41,794 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-20 23:19:41,795 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-20 23:19:43,806 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-20 23:19:43,806 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-20 23:19:43,856 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-20 23:19:43,877 [DEBUG] pywebview: loaded event fired
+2026-03-20 23:19:55,319 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_zldjkuk3_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_zldjkuk3', '-l', 'eng+chi_sim', 'txt']
+2026-03-20 23:19:55,680 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9,00 790434 LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD 50.00 PCS
+2026-03-20 23:19:55,682 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9,00', '790434', 'LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD', '50.00', 'PCS')]
+2026-03-20 23:19:57,077 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 23:19:57,078 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 23:19:57,081 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 23:27:09,764 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-20 23:27:09,813 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-20 23:27:09,814 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-20 23:27:12,021 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-20 23:27:12,022 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-20 23:27:12,053 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-20 23:27:12,063 [DEBUG] pywebview: loaded event fired
+2026-03-20 23:27:18,524 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_o1myd8h__input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_o1myd8h_', '-l', 'eng+chi_sim', 'txt']
+2026-03-20 23:27:18,907 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9,00 790434 LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD 50.00 PCS
+2026-03-20 23:27:18,909 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9,00', '790434', 'LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD', '50.00', 'PCS')]
+2026-03-20 23:27:20,101 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 23:27:20,101 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 23:27:20,104 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 23:27:27,592 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 23:27:27,592 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 23:27:27,595 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 23:27:35,123 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 23:27:35,123 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 23:27:35,126 [INFO] root: [API] query_prices 返回 2 条
+2026-03-20 23:35:41,669 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-20 23:35:41,722 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-20 23:35:41,722 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-20 23:35:43,851 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-20 23:35:43,852 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-20 23:35:43,881 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-20 23:35:43,893 [DEBUG] pywebview: loaded event fired
+2026-03-20 23:35:53,902 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_v2vjl6il_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_v2vjl6il', '-l', 'eng+chi_sim', 'txt']
+2026-03-20 23:35:54,266 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9,00 790434 LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD 50.00 PCS
+2026-03-20 23:35:54,269 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9,00', '790434', 'LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD', '50.00', 'PCS')]
+2026-03-20 23:35:55,494 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-20 23:35:55,494 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-20 23:35:55,497 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:41:13,932 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-21 00:41:13,968 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-21 00:41:13,968 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-21 00:41:15,586 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-21 00:41:15,586 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-21 00:41:15,606 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-21 00:41:15,614 [DEBUG] pywebview: loaded event fired
+2026-03-21 00:41:24,164 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_zkyrrsk5_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_zkyrrsk5', '-l', 'eng+chi_sim', 'txt']
+2026-03-21 00:41:24,375 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9,00 790434 LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD 50.00 PCS
+2026-03-21 00:41:24,377 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9,00', '790434', 'LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD', '50.00', 'PCS')]
+2026-03-21 00:41:25,773 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 00:41:25,774 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:41:25,780 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:41:26,545 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 00:41:26,545 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:41:26,547 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:43:28,641 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-21 00:43:28,679 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-21 00:43:28,679 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-21 00:43:30,034 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-21 00:43:30,034 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-21 00:43:30,057 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-21 00:43:30,063 [DEBUG] pywebview: loaded event fired
+2026-03-21 00:43:43,424 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_dv5goxoc_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_dv5goxoc', '-l', 'eng+chi_sim', 'txt']
+2026-03-21 00:43:43,597 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9,00 790434 LAMP NAVIGATION TUBULAR P-285 220V 65W 60CD 50.00 PCS
+2026-03-21 00:43:43,599 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9,00', '790434', 'LAMP NAVIGATION TUBULAR P-285 220V 65W 60CD', '50.00', 'PCS')]
+2026-03-21 00:43:45,284 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 00:43:45,285 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:43:45,287 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:46:11,742 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-21 00:46:11,776 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-21 00:46:11,777 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-21 00:46:13,168 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-21 00:46:13,169 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-21 00:46:13,193 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-21 00:46:13,201 [DEBUG] pywebview: loaded event fired
+2026-03-21 00:46:20,001 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_v4syrjsa_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_v4syrjsa', '-l', 'eng+chi_sim', 'txt']
+2026-03-21 00:46:20,188 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9.00 790434 LAMP NAVIGATION TUBULAR P-285 220V 65W 60CD. 50.00 PCS
+2026-03-21 00:46:20,190 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9.00', '790434', 'LAMP NAVIGATION TUBULAR P-285 220V 65W 60CD.', '50.00', 'PCS')]
+2026-03-21 00:46:21,684 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 00:46:21,685 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:46:21,687 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:46:22,411 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 00:46:22,411 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:46:22,413 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:46:22,569 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 00:46:22,569 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:46:22,571 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:46:22,711 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 00:46:22,711 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:46:22,713 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:46:22,860 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 00:46:22,861 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:46:22,863 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:46:23,041 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 00:46:23,041 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:46:23,043 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:46:23,176 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 00:46:23,176 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:46:23,178 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:46:23,379 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 00:46:23,379 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:46:23,380 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:46:23,521 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 00:46:23,521 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:46:23,523 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:46:23,634 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 00:46:23,634 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:46:23,637 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:46:23,724 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 00:46:23,724 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:46:23,726 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:46:23,874 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 00:46:23,874 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:46:23,876 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:46:24,045 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 00:46:24,045 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:46:24,048 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:49:18,463 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-21 00:49:18,498 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-21 00:49:18,498 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-21 00:49:19,773 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-21 00:49:19,774 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-21 00:49:19,798 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-21 00:49:19,805 [DEBUG] pywebview: loaded event fired
+2026-03-21 00:49:33,653 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_5_fqg9pw_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_5_fqg9pw', '-l', 'eng+chi_sim', 'txt']
+2026-03-21 00:49:33,851 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9,00 790434 LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD 50.00 PCS
+2026-03-21 00:49:33,852 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9,00', '790434', 'LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD', '50.00', 'PCS')]
+2026-03-21 00:49:35,136 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 00:49:35,136 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:49:35,143 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:49:42,208 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 00:49:42,208 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:49:42,211 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:52:07,315 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-21 00:52:07,349 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-21 00:52:07,350 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-21 00:52:08,829 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-21 00:52:08,829 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-21 00:52:08,851 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-21 00:52:08,858 [DEBUG] pywebview: loaded event fired
+2026-03-21 00:52:15,478 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_e8necij5_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_e8necij5', '-l', 'eng+chi_sim', 'txt']
+2026-03-21 00:52:15,659 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9,00 790434 LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD 50.00 PCS
+2026-03-21 00:52:15,661 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9,00', '790434', 'LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD', '50.00', 'PCS')]
+2026-03-21 00:52:16,966 [INFO] root: [API] query_prices 调用: 2 条, 公司='SINWA SGP'
+2026-03-21 00:52:16,967 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:52:16,969 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:52:17,956 [INFO] root: [API] query_prices 调用: 2 条, 公司='SINWA SGP'
+2026-03-21 00:52:17,957 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:52:17,958 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:52:18,106 [INFO] root: [API] query_prices 调用: 2 条, 公司='SINWA SGP'
+2026-03-21 00:52:18,106 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:52:18,108 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:52:18,249 [INFO] root: [API] query_prices 调用: 2 条, 公司='SINWA SGP'
+2026-03-21 00:52:18,249 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:52:18,251 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:57:45,054 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-21 00:57:45,089 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-21 00:57:45,089 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-21 00:57:46,542 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-21 00:57:46,543 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-21 00:57:46,565 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-21 00:57:46,571 [DEBUG] pywebview: loaded event fired
+2026-03-21 00:57:49,504 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-21 00:57:49,504 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-21 00:57:49,515 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-21 00:57:49,524 [DEBUG] pywebview: loaded event fired
+2026-03-21 00:57:56,714 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_tqnymd_a_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_tqnymd_a', '-l', 'eng+chi_sim', 'txt']
+2026-03-21 00:57:56,921 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9,00 790434 LAMP NAVIGATION TUBULAR P-285 220V 65W 60CD 50.00 PCS
+2026-03-21 00:57:56,922 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9,00', '790434', 'LAMP NAVIGATION TUBULAR P-285 220V 65W 60CD', '50.00', 'PCS')]
+2026-03-21 00:57:58,292 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 00:57:58,292 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:57:58,298 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:58:34,878 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 00:58:34,879 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:58:34,881 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:58:35,298 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 00:58:35,298 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:58:35,299 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 00:58:35,470 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 00:58:35,470 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 00:58:35,473 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 01:00:11,552 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-21 01:00:11,588 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-21 01:00:11,588 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-21 01:00:12,916 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-21 01:00:12,916 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-21 01:00:12,941 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-21 01:00:12,946 [DEBUG] pywebview: loaded event fired
+2026-03-21 01:00:21,159 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_oqdqnu0j_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_oqdqnu0j', '-l', 'eng+chi_sim', 'txt']
+2026-03-21 01:00:21,351 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9,00 790434 LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD 50.00 PCS
+2026-03-21 01:00:21,353 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9,00', '790434', 'LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD', '50.00', 'PCS')]
+2026-03-21 01:00:22,926 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 01:00:22,926 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 01:00:22,928 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 01:03:12,005 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-21 01:03:12,042 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-21 01:03:12,042 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-21 01:03:13,340 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-21 01:03:13,341 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-21 01:03:13,369 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-21 01:03:13,375 [DEBUG] pywebview: loaded event fired
+2026-03-21 01:03:20,360 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_llcb1gqu_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_llcb1gqu', '-l', 'eng+chi_sim', 'txt']
+2026-03-21 01:03:20,544 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9.00 790434 LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD 50.00 PCs
+2026-03-21 01:03:20,546 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9.00', '790434', 'LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD', '50.00', 'PCS')]
+2026-03-21 01:03:24,661 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 01:03:24,661 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 01:03:24,662 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 01:03:25,403 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 01:03:25,404 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 01:03:25,406 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 01:03:25,560 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 01:03:25,560 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 01:03:25,563 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 01:03:25,703 [INFO] root: [API] query_prices 调用: 2 条, 公司='Other'
+2026-03-21 01:03:25,703 [INFO] root: [API] items[0]={'item_no': '2.00', 'code': '790253', 'desc': 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', 'qty': '50.00', 'unit': 'PCS'}
+2026-03-21 01:03:25,705 [INFO] root: [API] query_prices 返回 2 条
+2026-03-21 01:17:48,473 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-21 01:17:48,511 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-21 01:17:48,511 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-21 01:17:49,641 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-21 01:17:49,641 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-21 01:17:49,667 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-21 01:17:49,670 [DEBUG] pywebview: loaded event fired
+2026-03-21 01:18:06,935 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-21 01:18:06,970 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-21 01:18:06,970 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-21 01:18:08,055 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-21 01:18:08,056 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-21 01:18:08,075 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-21 01:18:08,077 [DEBUG] pywebview: loaded event fired
+2026-03-21 01:18:19,743 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-21 01:18:19,780 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-21 01:18:19,780 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-21 01:18:20,820 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-21 01:18:20,821 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-21 01:18:20,839 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-21 01:18:20,841 [DEBUG] pywebview: loaded event fired
+2026-03-21 01:18:27,800 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-21 01:18:27,834 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-21 01:18:27,834 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-21 01:18:29,038 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-21 01:18:29,039 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-21 01:18:29,057 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-21 01:18:29,063 [DEBUG] pywebview: loaded event fired
+2026-03-21 08:46:10,847 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-21 08:46:10,882 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-21 08:46:10,882 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-21 08:46:12,165 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-21 08:46:12,165 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-21 08:46:12,183 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-21 08:46:12,190 [DEBUG] pywebview: loaded event fired
+2026-03-21 08:46:37,128 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_t5h1cycx_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_t5h1cycx', '-l', 'eng+chi_sim', 'txt']
+2026-03-21 08:46:37,353 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9,00 790434 LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD 50.00 PCS
+
+25.00 790713 LAMP PILOT MINIATURE S5.5S18 28V 0.04A 5.5X16MM 10.00 PCS
+2026-03-21 08:46:37,355 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9,00', '790434', 'LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD', '50.00', 'PCS'), ('25.00', '790713', 'LAMP PILOT MINIATURE S5.5S18 28V 0.04A 5.5X16MM', '10.00', 'PCS')]
+2026-03-21 08:46:38,726 [INFO] root: [API] query_prices: 3 条, 公司='Other'
+2026-03-21 08:46:38,733 [INFO] root: [API] 虚拟表构建完成: 3 行 × 29 列
+2026-03-21 08:46:41,449 [INFO] root: [API] query_prices: 3 条, 公司='Other'
+2026-03-21 08:46:41,451 [INFO] root: [API] 虚拟表构建完成: 3 行 × 29 列
+2026-03-21 09:22:32,103 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-21 09:22:32,144 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-21 09:22:32,144 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-21 09:22:33,465 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-21 09:22:33,465 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-21 09:22:33,482 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-21 09:22:33,487 [DEBUG] pywebview: loaded event fired
+2026-03-21 09:22:45,314 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_o02u_79t_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_o02u_79t', '-l', 'eng+chi_sim', 'txt']
+2026-03-21 09:22:45,486 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9,00 790434 LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD 50.00 PCS
+2026-03-21 09:22:45,488 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9,00', '790434', 'LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD', '50.00', 'PCS')]
+2026-03-21 09:22:48,842 [INFO] root: [API] query_prices: 2 条, 公司='Other'
+2026-03-21 09:22:48,844 [INFO] root: [API] 虚拟表构建完成: 2 行 × 29 列
+2026-03-21 09:38:15,587 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-21 09:38:15,622 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-21 09:38:15,622 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-21 09:38:16,657 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-21 09:38:16,658 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-21 09:38:16,674 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-21 09:38:16,682 [DEBUG] pywebview: loaded event fired
+2026-03-21 09:42:36,187 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess__os3eqbs_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess__os3eqbs', '-l', 'eng+chi_sim', 'txt']
+2026-03-21 09:42:36,370 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9,00 790434 LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD 50.00 PCS
+2026-03-21 09:42:36,372 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9,00', '790434', 'LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD', '50.00', 'PCS')]
+2026-03-21 09:42:37,284 [INFO] root: [API] query_prices: 2 条, 公司='Other'
+2026-03-21 09:42:37,285 [INFO] root: [API] 虚拟表构建完成: 2 行 × 29 列
+2026-03-21 09:59:26,432 [DEBUG] pywebview: Using WinForms / Chromium
+2026-03-21 09:59:26,467 [DEBUG] pywebview: Comon path for local URLs: E:\pycharm\OCRPro\frontend
+2026-03-21 09:59:26,467 [DEBUG] pywebview: HTTP server root path: E:\pycharm\OCRPro\frontend
+2026-03-21 09:59:27,681 [DEBUG] pywebview: before_load event fired. injecting pywebview object
+2026-03-21 09:59:27,682 [DEBUG] pywebview: Loading JS files from E:\python310\Lib\site-packages\webview\js
+2026-03-21 09:59:27,700 [DEBUG] pywebview: _pywebviewready event fired
+2026-03-21 09:59:27,708 [DEBUG] pywebview: loaded event fired
+2026-03-21 09:59:41,274 [DEBUG] pytesseract: ['E:\\Tesseract\\tesseract.exe', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_dfmv92ls_input.PNG', 'C:\\Users\\HP\\AppData\\Local\\Temp\\tess_dfmv92ls', '-l', 'eng+chi_sim', 'txt']
+2026-03-21 09:59:41,447 [DEBUG] root: [OCR] 原始文本:
+2.00 790253 LAMP LED 8W (60W) 220V E-27, DAY LIGHT 50.00 PCS
+
+9,00 790434 LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD 50.00 PCS
+2026-03-21 09:59:41,449 [DEBUG] root: [OCR] 最终配对: [('2.00', '790253', 'LAMP LED 8W (60W) 220V E-27, DAY LIGHT', '50.00', 'PCS'), ('9,00', '790434', 'LAMP NAVIGATION TUBULAR P-28S 220V 65W 60CD', '50.00', 'PCS')]
+2026-03-21 09:59:43,323 [INFO] root: [API] query_prices: 2 条, 公司='Other'
+2026-03-21 09:59:43,325 [INFO] root: [API] 虚拟表构建完成: 2 行 × 29 列
