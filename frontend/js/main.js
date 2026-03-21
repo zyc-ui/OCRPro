@@ -1,12 +1,21 @@
 /* main.js — Alpine.js App 组件 */
 
+// 价格 / 公司列（切换复选框时永远保留，不被隐藏）
+const _ALWAYS_SHOW = new Set([
+  'Item NO.','商品代码','客户描述','数量','UOM',
+  'Cost Price','High Price','Medium Price',
+  'SINWA SGP','SSM 7SEA','Seven Seas','Wrist Far East',
+  'Anchor Marine','RMS Marine','Fuji Trading','Con Lash',
+]);
+
 function App() {
   return {
-
+    // ── 配置 ──
     companyOptions: [],
     flDisplay:      [],
     colWidths:      {},
 
+    // ── 状态 ──
     activeTab:    'query',
     lang:         'zh',
     isScanning:   false,
@@ -16,32 +25,32 @@ function App() {
     company:         '',
     companyColLabel: '',
     productItems:    [],
-    queryResults:    [],   // 存对象数组，供导出用
+    queryResults:    [],
     codesText:       '未识别到商品代码',
     selectedRowIdx:  -1,
 
-    colVisibility: {},
-    infoColNames:  [],
+    colVisibility:    {},
+    infoColNames:     [],
+    _lastQueryAllCols: [],   // 记录最近一次查询的全量列（用于复选框重建）
 
     priceSearch:      '',
     priceStats:       '',
-    rowLines:         3,
+    rowHeight:        72,    // 当前行高 px（两张表共用）
     _plLoadedFor:     null,
-    priceListGridApi: null,
-    queryGridApi:     null,
     _plGridInited:    false,
     priceListCallback: null,
 
-    globalKeyword: '',
-    globalStats:   '在所有数据表中搜索关键词',
+    // ── 价目表关键词选择器 ──
+    plKeywords:   [],        // 可选关键词列表
+    plKwSel:      [],        // 已选关键词
+    plKwOpen:     false,     // 下拉面板是否打开
 
-    editDlg: { open: false, rowIndex: -1, item_no: '', code: '', desc: '', qty: '', unit: '' },
-    exportDlg: { open: false },
+    editDlg:  { open:false, rowIndex:-1, item_no:'', code:'', desc:'', qty:'', unit:'' },
+    exportDlg: { open:false },
 
     tabs: [
       { id: 'query',     label: '价格查询' },
       { id: 'pricelist', label: '价目表'   },
-      { id: 'global',    label: '全局搜索' },
     ],
 
     /* ══════════════════════════════════════════════
@@ -56,36 +65,29 @@ function App() {
       this.flDisplay      = cfg.fl_display;
       this.colWidths      = cfg.col_widths;
 
-      const names = {};
-      cfg.fl_display.slice(0, 25).forEach(col => { names[col] = true; });
-      this.colVisibility = names;
+      const vis = {};
+      cfg.fl_display.slice(0, 25).forEach(col => { vis[col] = true; });
+      this.colVisibility = vis;
       this.infoColNames  = cfg.fl_display.slice(0, 22);
 
       if (!cfg.db_ok) {
-        alert('⚠️ 数据库中缺少 FullList 表，请点击右上角 FullListUpdate 选择 Excel 文件导入数据');
+        alert('⚠️ 数据库中缺少 FullList 表，请点击右上角 FullListUpdate 导入数据');
       }
 
-      // 查询 Grid：初始化（空列，等数据来了再建列）
+      // 初始化查询表格
       initQueryGrid(this);
 
-      // 价目表 Grid：延迟到第一次切换时初始化
+      // 监听标签切换 → 初始化价目表
       this.$watch('activeTab', async tab => {
         if (tab === 'pricelist') {
-            // 用 requestAnimationFrame 等浏览器完成布局，而非 0ms timeout
-            await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-            if (!this._plGridInited) {
-              initPriceListGrid(this);
-              this._plGridInited = true;
-              // 再等一帧，让 AG Grid 完成内部初始化
-              await new Promise(r => requestAnimationFrame(r));
-            }
-            await this._loadPriceList();
-
-            // 用模块级变量而非 this.priceListGridApi
-            resizeGrid(priceListGridApi);
+          await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+          if (!this._plGridInited) {
+            initPriceListGrid(this);
+            this._plGridInited = true;
+            await new Promise(r => requestAnimationFrame(r));
+          }
+          await this._loadPriceList();
         }
-        if (tab === 'query') resizeGrid(queryGridApi);
       });
     },
 
@@ -96,20 +98,15 @@ function App() {
       });
     },
 
-    _nextTick() {
-      return new Promise(r => setTimeout(r, 0));
-    },
-
     /* ══════════════════════════════════════════════
-       标签页 / 公司
+       标签页
     ══════════════════════════════════════════════ */
     switchTab(id) { this.activeTab = id; },
 
     onCompanyChange() {
-      const COMPANY_LIST = ['SINWA SGP','SSM 7SEA','Seven Seas','Wrist Far East',
-                             'Anchor Marine','RMS Marine','Fuji Trading','Con Lash'];
-      this.companyColLabel = COMPANY_LIST.includes(this.company)
-        ? this.company : 'High / Medium Price';
+      const LIST = ['SINWA SGP','SSM 7SEA','Seven Seas','Wrist Far East',
+                    'Anchor Marine','RMS Marine','Fuji Trading','Con Lash'];
+      this.companyColLabel = LIST.includes(this.company) ? this.company : 'High / Medium Price';
       this._plLoadedFor = null;
     },
 
@@ -121,13 +118,12 @@ function App() {
       this._ocrAppend = append;
       const ok = await window.pywebview.api.start_ocr();
       if (!ok) {
-        alert('❌ Tesseract 未找到，请检查 ocr_engine.py 中的路径配置');
+        alert('❌ Tesseract 未找到');
         this.isScanning = false;
       }
     },
 
     _handleOCRResult(items) {
-      console.log('[OCR] 收到结果', items?.length, '条');
       this.isScanning = false;
       if (!items?.length) {
         if (!this.productItems.length) this.codesText = '未识别到商品代码';
@@ -135,50 +131,39 @@ function App() {
       }
       const valid = items.filter(i => i.code);
       if (!valid.length) { this.codesText = '识别到结果但无商品代码，请重试'; return; }
-      this.productItems = this._ocrAppend
-        ? [...this.productItems, ...valid] : valid;
+      this.productItems = this._ocrAppend ? [...this.productItems, ...valid] : valid;
       this.codesText = this.productItems
         .map(i => i.desc ? `${i.code}: ${i.desc}` : i.code).join('  |  ');
     },
 
     /* ══════════════════════════════════════════════
-       查询价格 ← 核心修复：完全仿照价目表加载方式
+       查询价格
     ══════════════════════════════════════════════ */
     async queryPrices() {
       if (!this.productItems.length) { alert('请先使用 OCR 识别商品代码'); return; }
-      if (!this.company)             { alert('请先在左上角选择公司'); return; }
-
-      console.log('[Query] 开始查询，商品数:', this.productItems.length, '公司:', this.company);
+      if (!this.company)             { alert('请先选择公司'); return; }
       this.isQuerying = true;
-
       try {
-        // 调用 Python，返回 {cols, rows} 与 get_price_list 完全相同的格式
         const d = await window.pywebview.api.query_prices(this.productItems, this.company);
+        if (!d?.cols?.length || !d?.rows) { alert('查询返回格式异常'); return; }
+        if (!d.rows.length) { alert('查询完成但无数据，请确认数据库已导入'); return; }
 
-        console.log('[Query] 返回:', d?.cols?.length, '列,', d?.rows?.length, '行');
-        console.log('[Query] cols[0..4]:', d?.cols?.slice(0, 5));
-        console.log('[Query] rows[0]:', d?.rows?.[0]);
+        // 存全量列（复选框过滤用）
+        this._lastQueryAllCols = d.cols;
 
-        if (!d || !d.cols || !d.rows) {
-          alert('查询返回数据格式异常，请查看控制台日志');
-          return;
-        }
-        if (d.rows.length === 0) {
-          alert('查询完成但未返回数据。\n可能原因：\n1. 数据库尚未导入（请点击 FullListUpdate）\n2. 商品代码在数据库中不存在');
-          return;
-        }
-
-        // 保存对象数组供导出用
+        // 存对象数组（导出用）
         this.queryResults = d.rows.map(row => {
           const obj = {};
           d.cols.forEach((c, i) => { obj[c] = row[i] || ''; });
           return obj;
         });
 
-        // ★ 用与价目表完全相同的方式渲染
-        updateQueryResultGrid(d.cols, d.rows, this.colWidths);
+        // 应用当前复选框可见性，再渲染
+        const visCols = this._visibleQueryCols(d.cols);
+        updateQueryResultGrid(d.cols, d.rows, this.colWidths, visCols);
 
-        console.log('[Query] 完成，行数:', d.rows.length);
+        // 同步行高
+        if (queryGridApi) queryGridApi.setRowHeight(this.rowHeight);
 
       } catch (e) {
         console.error('[Query] 出错:', e);
@@ -189,21 +174,42 @@ function App() {
     },
 
     /* ══════════════════════════════════════════════
-       列显示（复选框）
+       列显示切换（复选框）
     ══════════════════════════════════════════════ */
     toggleCol(col, visible) {
       this.colVisibility[col] = visible;
-      // 重新查询后才生效，无需立即刷新
+      if (!this.queryResults.length || !this._lastQueryAllCols.length) return;
+
+      const visCols = this._visibleQueryCols(this._lastQueryAllCols);
+      const colDefs = visCols.map(name => ({
+        field: name, headerName: name,
+        width: (this.colWidths[name]) || 110,
+      }));
+
+      if (queryGridApi) {
+        queryGridApi.setGridOption('columnDefs', colDefs);
+        requestAnimationFrame(() => queryGridApi.setGridOption('rowData', this.queryResults));
+      }
+    },
+
+    /** 从全量列中过滤出当前应显示的列 */
+    _visibleQueryCols(allCols) {
+      return allCols.filter(c => {
+        if (_ALWAYS_SHOW.has(c)) return true;
+        return this.colVisibility[c] !== false;
+      });
     },
 
     /* ══════════════════════════════════════════════
        行管理
     ══════════════════════════════════════════════ */
     addBlankRow() {
-      const blank = { 'Item NO.': '', '商品代码': '双击选择', '客户描述': '', '数量': '', 'UOM': '' };
+      const blank = { 'Item NO.':'', '商品代码':'双击选择', '客户描述':'', '数量':'', 'UOM':'' };
       this.flDisplay.forEach(n => { blank[n] = ''; });
       this.queryResults.push(blank);
-      updateQueryGrid(this.queryResults);
+      const visCols = this._visibleQueryCols(this._lastQueryAllCols.length
+        ? this._lastQueryAllCols : Object.keys(this.queryResults[0] || {}));
+      updateQueryGrid(this.queryResults, visCols);
     },
 
     removeSelectedRow() {
@@ -211,7 +217,18 @@ function App() {
       if (!confirm('确定删除选中行？')) return;
       this.queryResults.splice(this.selectedRowIdx, 1);
       this.selectedRowIdx = -1;
-      updateQueryGrid(this.queryResults);
+      const visCols = this._visibleQueryCols(this._lastQueryAllCols.length
+        ? this._lastQueryAllCols : Object.keys(this.queryResults[0] || {}));
+      updateQueryGrid(this.queryResults, visCols);
+    },
+
+    /* ══════════════════════════════════════════════
+       行高控制（双表同步）
+    ══════════════════════════════════════════════ */
+    onRowHeightChange(px) {
+      this.rowHeight = +px;
+      if (queryGridApi)     queryGridApi.setRowHeight(this.rowHeight);
+      if (priceListGridApi) priceListGridApi.setRowHeight(this.rowHeight);
     },
 
     /* ══════════════════════════════════════════════
@@ -223,42 +240,83 @@ function App() {
       this.priceStats = '加载中…';
       try {
         const d = await window.pywebview.api.get_price_list(key);
-        if (!d || !d.cols || !d.rows) { this.priceStats = '数据格式异常'; return; }
+        if (!d?.cols?.length) { this.priceStats = '数据格式异常'; return; }
         updatePriceListGrid(d.cols, d.rows, this.colWidths);
+        if (priceListGridApi) priceListGridApi.setRowHeight(this.rowHeight);
         this._plLoadedFor = key;
-        this.priceStats = d.rows.length > 0 ? `共 ${d.rows.length} 条` : '暂无数据';
+        this.priceStats = d.rows.length ? `共 ${d.rows.length} 条` : '暂无数据';
       } catch (e) {
         console.error('[PriceList] 加载失败:', e);
         this.priceStats = '加载失败: ' + String(e);
       }
     },
 
+    /* ── 价目表搜索（合并搜索栏 + 选中关键词）── */
     onPriceSearch() {
+      this._doSearch();
+    },
+    clearPriceSearch() {
+      this.priceSearch = '';
+      this._doSearch();
+    },
+    _doSearch() {
       const raw = this.priceSearch.trim();
-      if (!raw) { this.clearPriceSearch(); return; }
-      const kws = raw.split(/[,;\s，；]+/).map(k => k.trim().toUpperCase()).filter(Boolean);
-      const n = searchPriceList(kws);
-      this.priceStats = n ? `找到 ${n} 条匹配` : `未找到含 "${raw}" 的结果`;
+      const barKws = raw
+        ? raw.split(/[,;\s，；]+/).map(k => k.trim().toUpperCase()).filter(Boolean)
+        : [];
+      const kwKws = this.plKwSel.map(k => k.toUpperCase());
+      const all   = [...new Set([...barKws, ...kwKws])];
+      const n = searchPriceList(all);
+      this.priceStats = n ? `找到 ${n} 条匹配` : (all.length ? '无匹配' : (this._plLoadedFor != null ? `共 ${_plData.length} 条` : ''));
     },
 
-    clearPriceSearch() { this.priceSearch = ''; searchPriceList([]); this.priceStats = ''; },
-
-    changeRowLines(delta) {
-      this.rowLines = Math.max(1, Math.min(10, this.rowLines + delta));
-      setPriceListRowHeight(this.rowLines);
+    /* ── 关键词下拉 ── */
+    togglePlKw(kw) {
+      if (this.plKwSel.includes(kw)) {
+        this.plKwSel = this.plKwSel.filter(k => k !== kw);
+      } else {
+        this.plKwSel = [...this.plKwSel, kw];
+      }
+      this._doSearch();
     },
+    clearPlKw() {
+      this.plKwSel = [];
+      this._doSearch();
+    },
+    isKwSelected(kw) { return this.plKwSel.includes(kw); },
 
+    /* ══════════════════════════════════════════════
+       从查询表双击 → 价目表
+    ══════════════════════════════════════════════ */
     async openPriceListForRow(rowIdx, rowData) {
       this.selectedRowIdx = rowIdx;
+
+      // 提取关键词（商品代码 + 客户描述）
+      const src = `${rowData['商品代码'] || ''} ${rowData['客户描述'] || ''}`;
+      const seen = new Set();
+      this.plKeywords = [];
+      src.split(/[\s,，;；]+/).forEach(w => {
+        w = w.trim();
+        if (w.length > 1 && !seen.has(w.toUpperCase())) {
+          seen.add(w.toUpperCase());
+          this.plKeywords.push(w);
+        }
+      });
+      this.plKwSel  = [];
+      this.plKwOpen = false;
+      this.priceSearch = '';
+
       this.activeTab = 'pricelist';
-      await this._nextTick();
+      await new Promise(r => requestAnimationFrame(r));
       await this._loadPriceList();
+
       this.priceListCallback = async selected => {
         await this._applyPriceListRow(rowIdx, rowData, selected);
         this.activeTab = 'query';
       };
-      const kw = (rowData['U8代码'] || rowData['商品代码'] || '').replace('未找到','').trim();
-      if (kw) setTimeout(() => locatePriceList(kw), 120);
+
+      const kw = (rowData['U8代码'] || rowData['商品代码'] || '').replace('未找到', '').trim();
+      if (kw) setTimeout(() => locatePriceList(kw), 150);
     },
 
     async _applyPriceListRow(rowIdx, old, sel) {
@@ -268,7 +326,9 @@ function App() {
       if (!u8 && !impa) {
         const rebuilt = { ...old, ...sel, '商品代码': old['商品代码'], '客户描述': old['客户描述'], '数量': old['数量'] };
         this.queryResults[rowIdx] = rebuilt;
-        updateQueryGrid(this.queryResults);
+        const visCols = this._visibleQueryCols(this._lastQueryAllCols.length
+          ? this._lastQueryAllCols : Object.keys(rebuilt));
+        updateQueryGrid(this.queryResults, visCols);
         return;
       }
       try {
@@ -278,7 +338,9 @@ function App() {
         res['客户描述'] = old['客户描述'];
         res['数量']     = old['数量'];
         this.queryResults[rowIdx] = res;
-        updateQueryGrid(this.queryResults);
+        const visCols = this._visibleQueryCols(this._lastQueryAllCols.length
+          ? this._lastQueryAllCols : Object.keys(res));
+        updateQueryGrid(this.queryResults, visCols);
       } catch (e) { alert('重新查询失败: ' + e); }
     },
 
@@ -292,15 +354,15 @@ function App() {
         desc: data['客户描述'] || '', qty: data['数量'] || '', unit: data['UOM'] || '',
       };
     },
-
     saveEdit() {
       const { rowIndex: i, item_no, code, desc, qty, unit } = this.editDlg;
       if (i < 0 || i >= this.queryResults.length) return;
       Object.assign(this.queryResults[i], { 'Item NO.': item_no, '商品代码': code, '客户描述': desc, '数量': qty, 'UOM': unit });
-      updateQueryGrid(this.queryResults);
+      const visCols = this._visibleQueryCols(this._lastQueryAllCols.length
+        ? this._lastQueryAllCols : Object.keys(this.queryResults[0] || {}));
+      updateQueryGrid(this.queryResults, visCols);
       this.editDlg.open = false;
     },
-
     async matchEdit() {
       const { rowIndex: i, item_no, code, desc, qty, unit } = this.editDlg;
       if (!code)         { alert('商品代码为空，无法查询'); return; }
@@ -309,51 +371,16 @@ function App() {
       try {
         const res = await window.pywebview.api.query_single(code, desc, qty, item_no, unit, this.company);
         this.queryResults[i] = res;
-        updateQueryGrid(this.queryResults);
+        const visCols = this._visibleQueryCols(this._lastQueryAllCols.length
+          ? this._lastQueryAllCols : Object.keys(res));
+        updateQueryGrid(this.queryResults, visCols);
       } catch (e) { alert('查询失败: ' + e); }
-    },
-
-    /* ══════════════════════════════════════════════
-       全局搜索
-    ══════════════════════════════════════════════ */
-    async doGlobalSearch() {
-      const kw = this.globalKeyword.trim();
-      if (!kw) return;
-      this.globalStats = '搜索中…';
-      const cont = document.getElementById('globalResults');
-      cont.innerHTML = '';
-      try {
-        const res = await window.pywebview.api.global_search(kw);
-        const tables = Object.keys(res);
-        if (!tables.length) { this.globalStats = `未找到含 "${kw}" 的结果`; return; }
-        let total = 0;
-        tables.forEach(tbl => {
-          const { columns, rows } = res[tbl];
-          total += rows.length;
-          const sec = document.createElement('div');
-          sec.className = 'mb-6';
-          sec.innerHTML = `<p class="text-xs font-semibold text-slate-600 mb-1 px-1">${tbl} (${rows.length}条)</p>`;
-          const t = document.createElement('table');
-          t.className = 'w-full text-xs border-collapse';
-          const re = new RegExp(kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-          const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-          t.innerHTML = `<thead><tr>${columns.map(c=>`<th class="border border-slate-200 px-2 py-1 bg-slate-100 text-left font-medium whitespace-nowrap">${esc(c)}</th>`).join('')}</tr></thead>
-            <tbody>${rows.map((row,ri)=>`<tr class="${ri%2?'bg-slate-50':'bg-white'}">${row.map(cell=>{
-              const s=esc(String(cell||''));
-              return `<td class="border border-slate-200 px-2 py-1">${s.replace(re,m=>`<mark class="bg-yellow-200">${m}</mark>`)}</td>`;
-            }).join('')}</tr>`).join('')}</tbody>`;
-          sec.appendChild(t);
-          cont.appendChild(sec);
-        });
-        this.globalStats = `找到 ${total} 条，分布在 ${tables.length} 个表`;
-      } catch (e) { this.globalStats = '搜索失败: ' + e; }
     },
 
     /* ══════════════════════════════════════════════
        导出
     ══════════════════════════════════════════════ */
     openExportDialog() { this.exportDlg.open = true; },
-
     async doExport(type) {
       this.exportDlg.open = false;
       const { html, plain } = this._buildExportData();
@@ -369,16 +396,18 @@ function App() {
         catch { alert('剪贴板写入失败'); }
       }
     },
-
     _buildExportData() {
-      const visCols = Object.entries(this.colVisibility).filter(([,v])=>v).map(([k])=>k);
-      const TH='border:1px solid #666;padding:6px 10px;background:#d0d7e3;font-weight:bold;font-family:Arial,sans-serif;font-size:13px;white-space:nowrap;';
-      const TE='border:1px solid #999;padding:5px 10px;font-family:Arial,sans-serif;font-size:12px;background:#ffffff;';
-      const TO='border:1px solid #999;padding:5px 10px;font-family:Arial,sans-serif;font-size:12px;background:#f0f4fa;';
-      const headers = visCols.map(c=>`<th style="${TH}">${c}</th>`).join('');
-      const bodyHtml = this.queryResults.map((row,i)=>`<tr>${visCols.map(c=>`<td style="${i%2?TO:TE}">${row[c]||''}</td>`).join('')}</tr>`).join('\n');
-      const html = `<table style="border-collapse:collapse;border:2px solid #555;font-family:Arial,sans-serif;"><thead><tr>${headers}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
-      const plain = [visCols.join(' | '), '-'.repeat(80), ...this.queryResults.map(r=>visCols.map(c=>r[c]||'').join(' | '))].join('\n');
+      const visCols = Object.entries(this.colVisibility).filter(([, v]) => v).map(([k]) => k);
+      const TH = 'border:1px solid #666;padding:6px 10px;background:#d0d7e3;font-weight:bold;font-family:Arial,sans-serif;font-size:13px;white-space:nowrap;';
+      const TE = 'border:1px solid #999;padding:5px 10px;font-family:Arial,sans-serif;font-size:12px;background:#ffffff;';
+      const TO = 'border:1px solid #999;padding:5px 10px;font-family:Arial,sans-serif;font-size:12px;background:#f0f4fa;';
+      const headers = visCols.map(c => `<th style="${TH}">${c}</th>`).join('');
+      const body = this.queryResults.map((row, i) =>
+        `<tr>${visCols.map(c => `<td style="${i % 2 ? TO : TE}">${row[c] || ''}</td>`).join('')}</tr>`
+      ).join('\n');
+      const html = `<table style="border-collapse:collapse;border:2px solid #555;font-family:Arial,sans-serif;"><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table>`;
+      const plain = [visCols.join(' | '), '-'.repeat(80),
+        ...this.queryResults.map(r => visCols.map(c => r[c] || '').join(' | '))].join('\n');
       return { html, plain };
     },
 
@@ -389,9 +418,10 @@ function App() {
       this.productItems = []; this.queryResults = [];
       this.company = ''; this.companyColLabel = '';
       this.codesText = '未识别到商品代码'; this.selectedRowIdx = -1;
+      this._lastQueryAllCols = [];
       if (queryGridApi) queryGridApi.setGridOption('rowData', []);
     },
     async openDBUpdate() { await window.pywebview.api.open_db_update(); },
-    toggleLang()        { this.lang = this.lang === 'zh' ? 'en' : 'zh'; },
+    toggleLang() { this.lang = this.lang === 'zh' ? 'en' : 'zh'; },
   };
 }
