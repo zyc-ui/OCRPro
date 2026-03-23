@@ -1,6 +1,5 @@
 """
 app.py — 应用启动入口
-替代原 price_query_system.py 的 if __name__ == '__main__' 块。
 运行方式：python app.py
 调试模式：python app.py --debug
 """
@@ -25,7 +24,6 @@ logging.basicConfig(
 
 
 def _frontend_path() -> str:
-    """解析 frontend/index.html 的绝对路径，兼容打包环境。"""
     if getattr(sys, "frozen", False):
         base = os.path.join(os.path.dirname(sys.executable), "_internal")
     else:
@@ -35,7 +33,8 @@ def _frontend_path() -> str:
 
 def main() -> None:
     api   = API()
-    debug = "--debug" in sys.argv
+    # DevTools 默认永远关闭；如需调试请临时将 False 改为 True
+    debug = False
     html  = _frontend_path()
 
     if not os.path.exists(html):
@@ -43,7 +42,7 @@ def main() -> None:
         sys.exit(1)
 
     window = webview.create_window(
-        title            = "UMIHOSHI",
+        title            = "Seastar",
         url              = html,
         js_api           = api,
         width            = 1440,
@@ -55,7 +54,8 @@ def main() -> None:
 
     api.set_window(window)
 
-    webview.start(debug=True, http_server=False)
+    # debug=False：默认不打开 DevTools；传 --debug 时才开启
+    webview.start(debug=False, http_server=False)
 
 
 if __name__ == "__main__":

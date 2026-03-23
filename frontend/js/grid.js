@@ -58,8 +58,10 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
   let _selIdx    = -1;
   let _rowH      = 72;
 
-  // ── 列拖拽状态（每实例独立）──
-  let _dragSrcIdx = null;
+  // ── 列拖拽状态（每实例独立，pointer-events 实现）──
+  let _dragSrcIdx  = null;
+  let _dragOverIdx = null;
+  let _dragGhost   = null;
 
   const getW  = n  => _colWidths[n] || DEFAULT_WIDTHS[n] || 110;
   const total = () => _cols.reduce((s, c) => s + getW(c), 0);
@@ -81,7 +83,7 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
     table.style.width = total() + 'px';
   }
 
-  // ── 表头（含拖拽排序 + 列宽 handle）──
+  // ── 表头（列宽 handle + pointer 拖拽排序）──
   function renderHeader() {
     thead.innerHTML = '';
     if (!_cols.length) return;
@@ -95,15 +97,13 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
         + (COMPANY_COLS.has(col) ? ' col-company-hdr' : '');
       const w = getW(col);
       th.style.cssText = `width:${w}px;min-width:${w}px;position:relative;`;
-      th.setAttribute('draggable', 'true');
-      th.dataset.ci = ci;
 
       const span = document.createElement('span');
       span.className   = 'sg-th-text';
       span.textContent = col;
       th.appendChild(span);
 
-      // ── 列宽拖拽 handle（右边缘）──
+      // ── 列宽调整 handle（右边缘 resize）──
       const resizeHandle = document.createElement('div');
       resizeHandle.className = 'sg-resize-handle';
       resizeHandle.addEventListener('mousedown', e => {
@@ -128,47 +128,95 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
       });
       th.appendChild(resizeHandle);
 
-      // ── 列排序拖拽事件 ──
-      th.addEventListener('dragstart', e => {
-        _dragSrcIdx = ci;
-        e.dataTransfer.effectAllowed = 'move';
-        // 延迟加 class，否则拖影也会变暗
-        requestAnimationFrame(() => th.classList.add('sg-th-dragging'));
-      });
-
-      th.addEventListener('dragend', () => {
-        th.classList.remove('sg-th-dragging');
-        thead.querySelectorAll('.sg-th-drag-over').forEach(el => el.classList.remove('sg-th-drag-over'));
-        _dragSrcIdx = null;
-      });
-
-      th.addEventListener('dragover', e => {
+      // ── 列排序：pointer events（可见 ghost + 兄弟列滑动）──
+      th.addEventListener('mousedown', e => {
+        if (e.target.classList.contains('sg-resize-handle')) return;
+        if (e.button !== 0) return;
         e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        // 清除其他高亮，仅高亮当前
-        thead.querySelectorAll('.sg-th-drag-over').forEach(el => el.classList.remove('sg-th-drag-over'));
-        if (_dragSrcIdx !== null && _dragSrcIdx !== ci) {
-          th.classList.add('sg-th-drag-over');
-        }
-      });
 
-      th.addEventListener('dragleave', () => {
-        th.classList.remove('sg-th-drag-over');
-      });
+        _dragSrcIdx  = ci;
+        _dragOverIdx = ci;
 
-      th.addEventListener('drop', e => {
-        e.preventDefault();
-        th.classList.remove('sg-th-drag-over');
-        if (_dragSrcIdx === null || _dragSrcIdx === ci) return;
+        const thRect = th.getBoundingClientRect();
+        const thW    = thRect.width;
 
-        // 重排 _cols
-        const [moved] = _cols.splice(_dragSrcIdx, 1);
-        _cols.splice(ci, 0, moved);
-        _dragSrcIdx = null;
+        // 创建 ghost：克隆 th，悬浮跟随光标
+        const ghost = th.cloneNode(true);
+        ghost.querySelector('.sg-resize-handle')?.remove();
+        ghost.style.cssText = [
+          'position:fixed', 'pointer-events:none', 'z-index:99999',
+          `left:${thRect.left}px`, `top:${thRect.top}px`,
+          `width:${thW}px`, `height:${thRect.height}px`,
+          'margin:0', 'border-radius:6px',
+          'box-shadow:0 8px 20px rgba(0,0,0,.22)',
+          'opacity:0.95', 'cursor:grabbing',
+          'transition:transform 0.12s cubic-bezier(0.34,1.56,0.64,1),box-shadow 0.12s ease',
+        ].join(';');
+        document.body.appendChild(ghost);
+        _dragGhost = ghost;
 
-        // 重新渲染表头和内容
-        renderHeader();
-        scheduleRender();
+        // 动画：卡起来
+        requestAnimationFrame(() => {
+          ghost.style.transform  = 'rotate(-2deg) scale(1.07)';
+          ghost.style.boxShadow  = '0 20px 48px rgba(0,0,0,.38)';
+        });
+
+        // 源列淡出
+        th.classList.add('sg-th-drag-source');
+        // 给所有 th 加平滑 transform transition
+        const allThs = Array.from(thead.querySelectorAll('th.sg-th'));
+        allThs.forEach(t => { t.style.transition = 'transform 0.18s cubic-bezier(0.4,0,0.2,1)'; });
+
+        document.body.style.cursor     = 'grabbing';
+        document.body.style.userSelect = 'none';
+
+        const onMove = ev => {
+          // ghost 跟随光标水平移动，垂直固定在表头
+          ghost.style.left = (ev.clientX - thW / 2) + 'px';
+
+          // 临时隐藏 ghost，找光标下真实元素
+          ghost.style.visibility = 'hidden';
+          const under = document.elementFromPoint(ev.clientX, ev.clientY);
+          ghost.style.visibility = '';
+
+          const underTh = under?.closest('th.sg-th');
+          const newOver = underTh ? allThs.indexOf(underTh) : _dragOverIdx;
+          if (newOver < 0 || newOver === _dragOverIdx) return;
+          _dragOverIdx = newOver;
+
+          // 计算每列应该位移多少：在 src 和 target 之间的列反向退开
+          const srcW = thW;
+          allThs.forEach((t, idx) => {
+            if (idx === ci) return; // 源列本身不位移（只淡出）
+            let shift = 0;
+            if (ci < newOver && idx > ci && idx <= newOver) shift = -srcW; // 向右拖：中间列左移
+            if (ci > newOver && idx >= newOver && idx < ci)  shift =  srcW; // 向左拖：中间列右移
+            t.style.transform = shift ? `translateX(${shift}px)` : '';
+          });
+        };
+
+        const onUp = () => {
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup',   onUp);
+
+          ghost.remove();
+          _dragGhost = null;
+
+          th.classList.remove('sg-th-drag-source');
+          allThs.forEach(t => { t.style.transform = ''; t.style.transition = ''; });
+          document.body.style.cursor = document.body.style.userSelect = '';
+
+          if (_dragOverIdx !== null && _dragOverIdx !== _dragSrcIdx) {
+            const [moved] = _cols.splice(_dragSrcIdx, 1);
+            _cols.splice(_dragOverIdx, 0, moved);
+            renderHeader();
+            scheduleRender();
+          }
+          _dragSrcIdx = _dragOverIdx = null;
+        };
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup',   onUp);
       });
 
       tr.appendChild(th);

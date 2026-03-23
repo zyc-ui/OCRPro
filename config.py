@@ -20,8 +20,6 @@ def get_db_path() -> str:
 
 
 # ── FullList 列定义（顺序与 SQLite 列顺序严格对应，索引 0-33） ───────────────
-# 注意：FL_DB_COLS[i] 与 FL_DISPLAY[i] 必须一一对应。
-# 启动时的 assert 可在 CI / 调试时立即暴露不匹配。
 FL_DB_COLS: list[str] = [
     "Brand_Sort",                                        # 0
     "NO_",                                               # 1
@@ -39,7 +37,7 @@ FL_DB_COLS: list[str] = [
     "TEMP__CLASS_GAS",                                   # 13
     "SURFACE_TEMP_DUST",                                 # 14
     "CERT",                                              # 15
-    "PACKING_DIMENSION_L_x_W_x_H",                      # 16  ← 移除换行符，与实际Excel列对齐
+    "PACKING_DIMENSION_L_x_W_x_H",                      # 16
     "PACKING_WEIGHT_KG",                                 # 17
     "HS_Code",                                           # 18
     "COO",                                               # 19
@@ -48,7 +46,7 @@ FL_DB_COLS: list[str] = [
     "Cost_Price",                                        # 22  ← PRICE_COL_START
     "High_Price",                                        # 23
     "Medium_Price",                                      # 24
-    "L\nGROUP_3",                                       # 25  ← 若Excel表头有换行则保留，否则改为 "L_GROUP_3"
+    "L\nGROUP_3",                                       # 25
     "SINWA_SINGAPORE_PTE_LTD",                          # 26  ← COMPANY_COL_START
     "SSM_\n7SEA",                                       # 27
     "Seven_Seas_Maritime_Services_Singapore_Pte_Ltd",   # 28
@@ -87,7 +85,7 @@ FL_DISPLAY: list[str] = [
     "Medium Price",     # 24
     "L GROUP 3",        # 25
     "SINWA SGP",        # 26  ← COMPANY_COL_START_IDX
-    "SSM 7SEA",         # 27
+    "SSM 7SEA",         # 27  （数据库列保留，仅从下拉选项移除）
     "Seven Seas",       # 28
     "Wrist Far East",   # 29
     "Anchor Marine",    # 30
@@ -96,25 +94,22 @@ FL_DISPLAY: list[str] = [
     "Con Lash",         # 33
 ]
 
-# 在模块加载时立即校验，防止两个列表因手误长度不一致悄悄出错
 assert len(FL_DB_COLS) == len(FL_DISPLAY), (
     f"列定义不匹配：FL_DB_COLS={len(FL_DB_COLS)} 列，FL_DISPLAY={len(FL_DISPLAY)} 列"
 )
 
 # ── 区间常量 ────────────────────────────────────────────────────────────────
-PRICE_COL_START_IDX   = 22   # Cost_Price 起始索引（含）
-L_GROUP_3_IDX         = 25   # L GROUP 3 独立索引
-COMPANY_COL_START_IDX = 26   # 第一家公司列（SINWA）的起始索引
+PRICE_COL_START_IDX   = 22
+L_GROUP_3_IDX         = 25
+COMPANY_COL_START_IDX = 26
 
-# 非价格基础列（信息列）：0-21，可被用户切换显示
-BASE_INFO_INDICES: list[int] = list(range(PRICE_COL_START_IDX))          # [0..21]
-# 通用价格列（无特定公司时显示）：Cost/High/Medium Price
-GENERIC_PRICE_INDICES: list[int] = list(range(PRICE_COL_START_IDX, L_GROUP_3_IDX))  # [22,23,24]
+BASE_INFO_INDICES: list[int] = list(range(PRICE_COL_START_IDX))
+GENERIC_PRICE_INDICES: list[int] = list(range(PRICE_COL_START_IDX, L_GROUP_3_IDX))
 
-# ── 公司映射（显示名 → FL_DISPLAY 索引） ────────────────────────────────────
+# ── 公司映射（显示名 → FL_DISPLAY 索引）── SSM 7SEA 已从下拉选项移除 ──────────
 FL_COMPANY_DISPLAY_TO_IDX: dict[str, int] = {
     "SINWA SGP":      26,
-    "SSM 7SEA":       27,
+    # "SSM 7SEA": 27,   ← 已移除（与 Seven Seas 重复）
     "Seven Seas":     28,
     "Wrist Far East": 29,
     "Anchor Marine":  30,
@@ -137,7 +132,7 @@ FL_COL_WIDTHS: dict[str, int] = {
     "单位": 55,
     "Cost Price": 95,    "High Price": 95,   "Medium Price": 95,
     "L GROUP 3": 90,
-    "SINWA SGP": 110,    "SSM 7SEA": 110,    "Seven Seas": 110,
+    "SINWA SGP": 110,    "Seven Seas": 110,
     "Wrist Far East": 110, "Anchor Marine": 110, "RMS Marine": 110,
     "Fuji Trading": 110, "Con Lash": 110,
 }
