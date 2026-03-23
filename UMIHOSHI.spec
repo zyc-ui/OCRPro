@@ -23,8 +23,6 @@ a = Analysis(
         # 项目自身文件
         ('__init__.py',          '.'),
         ('DatabaseUpdate.py',    '.'),
-        ('price_query_system.py','.'),
-        ('translate.py','.'),
         # 数据库放到 exe 同级，方便用户替换更新
         # 注意：这里的目标路径 '.' 在 onedir 模式下实际是 _internal，
         # 所以改用 runtime hook 或直接让用户把 db 放 exe 旁边
