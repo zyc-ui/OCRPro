@@ -1,8 +1,8 @@
-/* grid.js — 原生 DOM 虚拟滚动表格 · 无第三方依赖 */
+/* grid.js — 原生 DOM 虚拟滚动表格 · 列拖拽排序 · 无第三方依赖 */
 
 // ── 列分类 ──────────────────────────────────────────────
 const PRICE_COLS   = new Set(['Cost Price','High Price','Medium Price']);
-const COMPANY_COLS = new Set(['SINWA SGP','SSM 7SEA','Seven Seas','Wrist Far East',
+const COMPANY_COLS = new Set(['SINWA SGP','Seven Seas','Wrist Far East',
                                'Anchor Marine','RMS Marine','Fuji Trading','Con Lash']);
 const CODE_COLS    = new Set(['U8代码','IMPA代码','KERGER/IMATECH','NO']);
 const WRAP_COLS    = new Set(['描述','详情','报价','备注1','备注2','客户描述']);
@@ -19,14 +19,14 @@ const DEFAULT_WIDTHS = {
   'Packing Dim':135, 'Packing Weight(KG)':125, 'HS Code':95,
   'COO':65, 'DATE':90, '单位':65,
   'Cost Price':95, 'High Price':95, 'Medium Price':95, 'L GROUP 3':90,
-  'SINWA SGP':110, 'SSM 7SEA':110, 'Seven Seas':110,
+  'SINWA SGP':110, 'Seven Seas':110,
   'Wrist Far East':115, 'Anchor Marine':115, 'RMS Marine':110,
   'Fuji Trading':110, 'Con Lash':110,
 };
 
-const BUFFER = 20;   // 虚拟滚动缓冲行数
+const BUFFER = 20;
 
-// ── 模块级引用（供 main.js 直接调用）────────────────────
+// ── 模块级引用 ────────────────────────────────────────────
 let queryGridApi     = null;
 let priceListGridApi = null;
 
@@ -42,7 +42,6 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
   if (!el) { console.error('[Grid] 容器未找到:', containerId); return null; }
   el.innerHTML = '';
 
-  // DOM 骨架
   const table    = document.createElement('table');
   table.className = 'sg-table';
   const colgroup = document.createElement('colgroup');
@@ -52,18 +51,19 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
   table.append(colgroup, thead, tbody);
   el.appendChild(table);
 
-  // 实例状态
   let _cols      = [];
   let _rows      = [];
   let _colWidths = {};
   let _matchSet  = new Set();
   let _selIdx    = -1;
-  let _rowH      = 72;   // ← 每个实例独立，可通过 setRowHeight 修改
+  let _rowH      = 72;
+
+  // ── 列拖拽状态（每实例独立）──
+  let _dragSrcIdx = null;
 
   const getW  = n  => _colWidths[n] || DEFAULT_WIDTHS[n] || 110;
   const total = () => _cols.reduce((s, c) => s + getW(c), 0);
 
-  // ── colgroup 同步 ──
   function syncColgroup() {
     colgroup.innerHTML = '';
     _cols.forEach(c => {
@@ -74,7 +74,6 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
     table.style.width = total() + 'px';
   }
 
-  // 单列宽更新（拖拽时，避免全量重渲染）
   function patchColWidth(ci, name) {
     const w = getW(name);
     const cols = colgroup.querySelectorAll('col');
@@ -82,11 +81,12 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
     table.style.width = total() + 'px';
   }
 
-  // ── 表头（含拖拽 handle）──
+  // ── 表头（含拖拽排序 + 列宽 handle）──
   function renderHeader() {
     thead.innerHTML = '';
     if (!_cols.length) return;
     const tr = document.createElement('tr');
+
     _cols.forEach((col, ci) => {
       const th = document.createElement('th');
       th.className = 'sg-th'
@@ -95,19 +95,22 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
         + (COMPANY_COLS.has(col) ? ' col-company-hdr' : '');
       const w = getW(col);
       th.style.cssText = `width:${w}px;min-width:${w}px;position:relative;`;
+      th.setAttribute('draggable', 'true');
+      th.dataset.ci = ci;
 
       const span = document.createElement('span');
-      span.className  = 'sg-th-text';
+      span.className   = 'sg-th-text';
       span.textContent = col;
       th.appendChild(span);
 
-      // 拖拽 handle
-      const handle = document.createElement('div');
-      handle.className = 'sg-resize-handle';
-      handle.addEventListener('mousedown', e => {
-        e.preventDefault(); e.stopPropagation();
+      // ── 列宽拖拽 handle（右边缘）──
+      const resizeHandle = document.createElement('div');
+      resizeHandle.className = 'sg-resize-handle';
+      resizeHandle.addEventListener('mousedown', e => {
+        e.preventDefault();
+        e.stopPropagation();
         const sx = e.pageX, sw = getW(col);
-        document.body.style.cursor = 'col-resize';
+        document.body.style.cursor     = 'col-resize';
         document.body.style.userSelect = 'none';
         const onMove = ev => {
           const nw = Math.max(40, sw + ev.pageX - sx);
@@ -118,14 +121,59 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
         const onUp = () => {
           document.body.style.cursor = document.body.style.userSelect = '';
           document.removeEventListener('mousemove', onMove);
-          document.removeEventListener('mouseup', onUp);
+          document.removeEventListener('mouseup',   onUp);
         };
         document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
+        document.addEventListener('mouseup',   onUp);
       });
-      th.appendChild(handle);
+      th.appendChild(resizeHandle);
+
+      // ── 列排序拖拽事件 ──
+      th.addEventListener('dragstart', e => {
+        _dragSrcIdx = ci;
+        e.dataTransfer.effectAllowed = 'move';
+        // 延迟加 class，否则拖影也会变暗
+        requestAnimationFrame(() => th.classList.add('sg-th-dragging'));
+      });
+
+      th.addEventListener('dragend', () => {
+        th.classList.remove('sg-th-dragging');
+        thead.querySelectorAll('.sg-th-drag-over').forEach(el => el.classList.remove('sg-th-drag-over'));
+        _dragSrcIdx = null;
+      });
+
+      th.addEventListener('dragover', e => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        // 清除其他高亮，仅高亮当前
+        thead.querySelectorAll('.sg-th-drag-over').forEach(el => el.classList.remove('sg-th-drag-over'));
+        if (_dragSrcIdx !== null && _dragSrcIdx !== ci) {
+          th.classList.add('sg-th-drag-over');
+        }
+      });
+
+      th.addEventListener('dragleave', () => {
+        th.classList.remove('sg-th-drag-over');
+      });
+
+      th.addEventListener('drop', e => {
+        e.preventDefault();
+        th.classList.remove('sg-th-drag-over');
+        if (_dragSrcIdx === null || _dragSrcIdx === ci) return;
+
+        // 重排 _cols
+        const [moved] = _cols.splice(_dragSrcIdx, 1);
+        _cols.splice(ci, 0, moved);
+        _dragSrcIdx = null;
+
+        // 重新渲染表头和内容
+        renderHeader();
+        scheduleRender();
+      });
+
       tr.appendChild(th);
     });
+
     thead.appendChild(tr);
     syncColgroup();
   }
@@ -182,6 +230,8 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
     });
 
     tr.addEventListener('click', () => {
+      // 停止任何正在进行的取消选中动画
+      tbody.querySelectorAll('.row-deselecting').forEach(r => r.classList.remove('row-deselecting'));
       _selIdx = i;
       tbody.querySelectorAll('tr[data-idx]').forEach(r => {
         const ri = +r.dataset.idx;
@@ -209,7 +259,22 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
 
   el.addEventListener('scroll', scheduleRender, { passive: true });
 
-  // ── 公开 API ──
+  // ── 点击空白处取消选中（含收缩动画）──
+  el.addEventListener('click', e => {
+    if (_selIdx < 0) return;                          // 无选中行，跳过
+    if (e.target.closest('tr[data-idx]')) return;     // 点在数据行上，行自身处理
+    if (e.target.closest('.sg-thead'))    return;     // 点在表头上，忽略
+
+    // 对可见的已选行播放动画
+    tbody.querySelectorAll('.row-selected').forEach(tr => {
+      tr.classList.remove('row-selected');
+      tr.classList.add('row-deselecting');
+      tr.addEventListener('animationend', () => tr.classList.remove('row-deselecting'), { once: true });
+    });
+    _selIdx = -1;
+    onRowSelected?.({ rowIndex: -1, data: null });
+  });
+
   return {
     setGridOption(key, value) {
       if (key === 'columnDefs') {
@@ -226,7 +291,7 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
       }
     },
     setRowHeight(px) {
-      _rowH = Math.max(24, Math.min(300, px));
+      _rowH = Math.max(24, Math.min(300, +px));
       scheduleRender();
     },
     setMatchIndices(indices) {
@@ -238,10 +303,10 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
       el.scrollTo({ top: Math.max(0, idx * _rowH - (el.clientHeight || 500) / 2), behavior: 'smooth' });
     },
     ensureIndexVisible(idx) { this.scrollToIndex(idx); },
-    redrawRows()  { scheduleRender(); },
-    sizeColumnsToFit() { /* no-op */ },
-    getRows() { return _rows; },
-    getCols() { return _cols; },
+    redrawRows()            { scheduleRender(); },
+    sizeColumnsToFit()      { /* no-op */ },
+    getRows()               { return _rows; },
+    getCols()               { return _cols;  },
   };
 }
 
@@ -265,10 +330,6 @@ function initQueryGrid(app) {
   console.log('[Grid] queryGrid 初始化');
 }
 
-/**
- * 刷新查询结果表（{cols, rows} 格式，来自 Python）
- * visibleColsOverride: 可选，仅渲染这些列（用于复选框隐藏）
- */
 function updateQueryResultGrid(cols, rows, colWidths, visibleColsOverride) {
   if (!queryGridApi) { console.error('[Grid] queryGridApi 未初始化'); return; }
   const visCols = visibleColsOverride || cols;
@@ -285,15 +346,13 @@ function updateQueryResultGrid(cols, rows, colWidths, visibleColsOverride) {
   requestAnimationFrame(() => queryGridApi.setGridOption('rowData', rowData));
 }
 
-/** 直接用对象数组刷新（addBlankRow 等） */
 function updateQueryGrid(rows, visibleCols) {
   if (!queryGridApi) return false;
   if (visibleCols) {
-    const colDefs = visibleCols.map(name => ({
+    queryGridApi.setGridOption('columnDefs', visibleCols.map(name => ({
       field: name, headerName: name,
       width: DEFAULT_WIDTHS[name] || 110,
-    }));
-    queryGridApi.setGridOption('columnDefs', colDefs);
+    })));
   }
   queryGridApi.setGridOption('rowData', Array.isArray(rows) ? rows : []);
   return true;
