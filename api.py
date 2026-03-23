@@ -1,5 +1,6 @@
 """
 api.py — JS-Python 桥接层
+匹配优先级：描述相似度优先，代码精确匹配兜底
 """
 
 import json
@@ -51,10 +52,7 @@ class API:
     # ── 价目表 ──────────────────────────────────────────────────────────────
 
     def get_price_list(self, company_name: str) -> dict:
-        """返回 {cols, rows}，同时更新价目表行缓存供相似度匹配使用。"""
         cols, rows = fetch_fulllist(company_name)
-
-        # 更新内部缓存（转为 dict 格式供 matcher 使用）
         self._pl_cols_cache = cols
         self._pl_rows_cache = [
             {cols[i]: (row[i] or "") for i in range(len(cols))}
@@ -65,7 +63,6 @@ class API:
             clear_cache()
         except Exception:
             pass
-
         price_positions = [
             i for i, name in enumerate(cols)
             if name in FL_DISPLAY[PRICE_COL_START_IDX:]
@@ -79,58 +76,107 @@ class API:
                     if v and not v.startswith("$"):
                         r[pi] = f"${v}"
             result_rows.append(r)
-
         return {"cols": cols, "rows": result_rows}
 
-    # ── 价格查询（虚拟表 + 相似度匹配） ────────────────────────────────────
+    # ── 内部辅助 ────────────────────────────────────────────────────────────
 
-    def query_prices(self, items: list, company_name: str) -> dict:
-        """
-        批量查询，返回 {cols, rows}（与 get_price_list 格式完全相同）。
-
-        匹配策略（按优先级）：
-          1. IMPA / U8 代码精确匹配
-          2. 客户描述相似度匹配（matcher.py，TF-IDF 或 BGE）
-          3. 无匹配：保留客户信息，其余列为空
-        """
-        logging.info(f"[API] query_prices: {len(items)} 条, 公司={company_name!r}")
-
-        # ── 列结构 ────────────────────────────────────────────────────────────
-        fixed_cols = ["Item NO.", "商品代码", "客户描述", "数量", "UOM", "匹配方式"]
-        info_cols  = list(FL_DISPLAY[:PRICE_COL_START_IDX])
-
-        col_idx = get_company_col_idx(company_name)
-        if col_idx is not None:
-            price_cols = [FL_DISPLAY[col_idx]]
-        else:
-            price_cols = [FL_DISPLAY[23], FL_DISPLAY[24]]
-
-        all_cols = fixed_cols + info_cols + price_cols
-
-        # ── 确保价目表缓存存在 ────────────────────────────────────────────────
-        if not self._pl_rows_cache:
-            logging.info("[API] 价目表缓存为空，从数据库加载…")
-            try:
-                pl_cols, pl_rows = fetch_fulllist(company_name)
-                self._pl_cols_cache = pl_cols
-                self._pl_rows_cache = [
-                    {pl_cols[i]: (pl_rows[j][i] or "") for i in range(len(pl_cols))}
-                    for j in range(len(pl_rows))
-                ]
-                logging.info(f"[API] 价目表缓存加载完成: {len(self._pl_rows_cache)} 行")
-            except Exception as e:
-                logging.error(f"[API] 加载价目表缓存失败: {e}")
-
-        # ── 加载相似度匹配器 ──────────────────────────────────────────────────
-        find_best_matches = None
+    def _ensure_pl_cache(self, company_name: str):
+        """首次查询时若缓存为空，从数据库加载价目表。"""
+        if self._pl_rows_cache:
+            return
+        logging.info("[API] 价目表缓存为空，从数据库加载…")
         try:
-            from matcher import find_best_matches as _fbm, get_mode
-            find_best_matches = _fbm
+            pl_cols, pl_rows = fetch_fulllist(company_name)
+            self._pl_cols_cache = pl_cols
+            self._pl_rows_cache = [
+                {pl_cols[i]: (pl_rows[j][i] or "") for i in range(len(pl_cols))}
+                for j in range(len(pl_rows))
+            ]
+            logging.info(f"[API] 缓存加载完成: {len(self._pl_rows_cache)} 行")
+        except Exception as e:
+            logging.error(f"[API] 加载缓存失败: {e}")
+
+    def _get_matcher(self):
+        try:
+            from matcher import find_best_matches, get_mode
             logging.info(f"[API] 匹配器就绪，模式: {get_mode()}")
+            return find_best_matches
         except Exception as e:
             logging.warning(f"[API] 匹配器不可用: {e}")
+            return None
 
-        # ── 逐条处理 ──────────────────────────────────────────────────────────
+    def _match_one(self, item_no, code, desc, qty, unit, col_idx, find_best_matches):
+        """
+        单条匹配核心：描述优先，代码兜底。
+        返回 (matched_row_dict | None, match_method_str)
+        """
+        matched_row  = None
+        match_method = ""
+
+        # ── Step 1: 描述相似度匹配（优先） ──────────────────────────────────
+        if desc and find_best_matches and self._pl_rows_cache:
+            try:
+                sim_results = find_best_matches(
+                    desc, self._pl_rows_cache, top_k=1, min_score=0.1
+                )
+                if sim_results:
+                    _, score, pl_row = sim_results[0]
+                    sim_code = pl_row.get("U8代码", "") or pl_row.get("IMPA代码", "")
+                    if sim_code:
+                        try:
+                            r = query_product(
+                                product_code    = sim_code,
+                                orig_desc       = desc,
+                                qty             = qty,
+                                item_no         = item_no,
+                                unit            = unit,
+                                company_col_idx = col_idx,
+                            )
+                            if r.get("U8代码") not in ("未找到", "", None):
+                                matched_row  = r
+                                match_method = f"🔍 描述匹配 {score:.0%}"
+                        except Exception:
+                            pass
+                    if matched_row is None:
+                        matched_row  = pl_row
+                        match_method = f"🔍 描述匹配 {score:.0%}"
+            except Exception as e:
+                logging.warning(f"[API] 相似度匹配失败: {e}")
+
+        # ── Step 2: 代码精确匹配（兜底） ────────────────────────────────────
+        if matched_row is None and code:
+            try:
+                r = query_product(
+                    product_code    = code,
+                    orig_desc       = desc,
+                    qty             = qty,
+                    item_no         = item_no,
+                    unit            = unit,
+                    company_col_idx = col_idx,
+                )
+                if r.get("U8代码") not in ("未找到", "", None):
+                    matched_row  = r
+                    match_method = "✅ 代码精确"
+            except Exception as e:
+                logging.warning(f"[API] 精确匹配失败 {code}: {e}")
+
+        return matched_row, match_method
+
+    # ── 价格查询 ────────────────────────────────────────────────────────────
+
+    def query_prices(self, items: list, company_name: str) -> dict:
+        """批量查询，返回 {cols, rows}，描述优先匹配。"""
+        logging.info(f"[API] query_prices: {len(items)} 条, 公司={company_name!r}")
+
+        fixed_cols = ["Item NO.", "商品代码", "客户描述", "数量", "UOM", "匹配方式"]
+        info_cols  = list(FL_DISPLAY[:PRICE_COL_START_IDX])
+        col_idx    = get_company_col_idx(company_name)
+        price_cols = [FL_DISPLAY[col_idx]] if col_idx is not None else [FL_DISPLAY[23], FL_DISPLAY[24]]
+        all_cols   = fixed_cols + info_cols + price_cols
+
+        self._ensure_pl_cache(company_name)
+        find_best_matches = self._get_matcher()
+
         rows = []
         for item in items:
             item_no = item.get("item_no", "")
@@ -139,71 +185,62 @@ class API:
             qty     = item.get("qty",     "")
             unit    = item.get("unit",    "")
 
-            matched_row  = None
-            match_method = ""
+            matched_row, match_method = self._match_one(
+                item_no, code, desc, qty, unit, col_idx, find_best_matches
+            )
 
-            # Step 1: 代码精确匹配
-            if code:
-                try:
-                    result = query_product(
-                        product_code    = code,
-                        orig_desc       = desc,
-                        qty             = qty,
-                        item_no         = item_no,
-                        unit            = unit,
-                        company_col_idx = col_idx,
-                    )
-                    if result.get("U8代码") not in ("未找到", "", None):
-                        matched_row  = result
-                        match_method = "✅ 代码精确"
-                except Exception as e:
-                    logging.warning(f"[API] 精确匹配失败 {code}: {e}")
-
-            # Step 2: 描述相似度匹配
-            if matched_row is None and find_best_matches and desc and self._pl_rows_cache:
-                try:
-                    sim_results = find_best_matches(
-                        desc, self._pl_rows_cache, top_k=1, min_score=0.1
-                    )
-                    if sim_results:
-                        _, score, pl_row = sim_results[0]
-                        sim_code = pl_row.get("U8代码", "") or pl_row.get("IMPA代码", "")
-                        if sim_code:
-                            try:
-                                result2 = query_product(
-                                    product_code    = sim_code,
-                                    orig_desc       = desc,
-                                    qty             = qty,
-                                    item_no         = item_no,
-                                    unit            = unit,
-                                    company_col_idx = col_idx,
-                                )
-                                if result2.get("U8代码") not in ("未找到", "", None):
-                                    matched_row  = result2
-                                    match_method = f"🔍 描述匹配 {score:.0%}"
-                            except Exception:
-                                pass
-                        if matched_row is None:
-                            matched_row  = pl_row
-                            match_method = f"🔍 描述匹配 {score:.0%}"
-                except Exception as e:
-                    logging.warning(f"[API] 相似度匹配失败: {e}")
-
-            # Step 3: 构造输出行
             row = []
             for col in all_cols:
-                if   col == "Item NO.":   row.append(item_no)
-                elif col == "商品代码":   row.append(code)
-                elif col == "客户描述":   row.append(desc)
-                elif col == "数量":       row.append(qty)
-                elif col == "UOM":        row.append(unit)
-                elif col == "匹配方式":   row.append(match_method)
-                elif matched_row:         row.append(str(matched_row.get(col, "") or ""))
-                else:                     row.append("")
+                if   col == "Item NO.": row.append(item_no)
+                elif col == "商品代码": row.append(code)
+                elif col == "客户描述": row.append(desc)
+                elif col == "数量":     row.append(qty)
+                elif col == "UOM":      row.append(unit)
+                elif col == "匹配方式": row.append(match_method)
+                elif matched_row:       row.append(str(matched_row.get(col, "") or ""))
+                else:                   row.append("")
             rows.append(row)
 
         logging.info(f"[API] 虚拟表: {len(rows)} 行 × {len(all_cols)} 列")
         return {"cols": all_cols, "rows": rows}
+
+    # ── 单条重新匹配（描述优先，供编辑弹窗"重新匹配"使用） ─────────────────
+
+    def query_single_desc_first(
+        self,
+        code:    str = "",
+        desc:    str = "",
+        qty:     str = "",
+        item_no: str = "",
+        unit:    str = "",
+        company: str = "",
+    ) -> dict:
+        """描述优先的单条匹配，返回 FL_DISPLAY 所有字段的 dict。"""
+        col_idx = get_company_col_idx(company)
+        self._ensure_pl_cache(company)
+        find_best_matches = self._get_matcher()
+
+        matched_row, match_method = self._match_one(
+            item_no, code, desc, qty, unit, col_idx, find_best_matches
+        )
+
+        if matched_row:
+            matched_row["匹配方式"] = match_method
+            return matched_row
+
+        # 未匹配时返回基础查询结果（U8代码会是"未找到"）
+        result = query_product(
+            product_code    = code,
+            orig_desc       = desc,
+            qty             = qty,
+            item_no         = item_no,
+            unit            = unit,
+            company_col_idx = col_idx,
+        )
+        result["匹配方式"] = ""
+        return result
+
+    # ── 旧接口兼容（价目表双击回填用，代码精确匹配） ────────────────────────
 
     def query_single(self, code="", desc="", qty="", item_no="", unit="", company="") -> dict:
         return query_product(
