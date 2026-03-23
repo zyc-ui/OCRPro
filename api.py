@@ -32,6 +32,8 @@ class API:
     def __init__(self):
         self._window: Optional[webview.Window] = None
         self._ocr = OCREngine()
+        self._pl_rows_cache: List[dict] = []
+        self._pl_cols_cache: List[str]  = []
 
     def set_window(self, window: webview.Window) -> None:
         self._window = window
@@ -49,8 +51,21 @@ class API:
     # ── 价目表 ──────────────────────────────────────────────────────────────
 
     def get_price_list(self, company_name: str) -> dict:
-        """返回 {cols: [...], rows: [[...], ...]}"""
+        """返回 {cols, rows}，同时更新价目表行缓存供相似度匹配使用。"""
         cols, rows = fetch_fulllist(company_name)
+
+        # 更新内部缓存（转为 dict 格式供 matcher 使用）
+        self._pl_cols_cache = cols
+        self._pl_rows_cache = [
+            {cols[i]: (row[i] or "") for i in range(len(cols))}
+            for row in rows
+        ]
+        try:
+            from matcher import clear_cache
+            clear_cache()
+        except Exception:
+            pass
+
         price_positions = [
             i for i, name in enumerate(cols)
             if name in FL_DISPLAY[PRICE_COL_START_IDX:]
@@ -64,57 +79,133 @@ class API:
                     if v and not v.startswith("$"):
                         r[pi] = f"${v}"
             result_rows.append(r)
+
         return {"cols": cols, "rows": result_rows}
 
-    # ── 价格查询（虚拟表方案，格式与 get_price_list 完全相同） ───────────────
+    # ── 价格查询（虚拟表 + 相似度匹配） ────────────────────────────────────
 
     def query_prices(self, items: list, company_name: str) -> dict:
         """
-        在后台构建虚拟表，返回与 get_price_list 完全相同的 {cols, rows} 格式。
+        批量查询，返回 {cols, rows}（与 get_price_list 格式完全相同）。
 
-        固定列：Item NO. | 商品代码 | 客户描述 | 数量 | UOM
-        信息列：FL_DISPLAY[0..21]
-        价格列：公司专属列 或 High Price + Medium Price
+        匹配策略（按优先级）：
+          1. IMPA / U8 代码精确匹配
+          2. 客户描述相似度匹配（matcher.py，TF-IDF 或 BGE）
+          3. 无匹配：保留客户信息，其余列为空
         """
         logging.info(f"[API] query_prices: {len(items)} 条, 公司={company_name!r}")
 
-        # ── 定义虚拟表的列结构 ────────────────────────────────────────────────
-        fixed_cols = ["Item NO.", "商品代码", "客户描述", "数量", "UOM"]
-        info_cols  = list(FL_DISPLAY[:PRICE_COL_START_IDX])          # 索引 0-21
+        # ── 列结构 ────────────────────────────────────────────────────────────
+        fixed_cols = ["Item NO.", "商品代码", "客户描述", "数量", "UOM", "匹配方式"]
+        info_cols  = list(FL_DISPLAY[:PRICE_COL_START_IDX])
 
         col_idx = get_company_col_idx(company_name)
         if col_idx is not None:
             price_cols = [FL_DISPLAY[col_idx]]
         else:
-            price_cols = [FL_DISPLAY[23], FL_DISPLAY[24]]            # High / Medium Price
+            price_cols = [FL_DISPLAY[23], FL_DISPLAY[24]]
 
         all_cols = fixed_cols + info_cols + price_cols
 
-        # ── 批量查询数据库，填入虚拟表 ────────────────────────────────────────
-        try:
-            results = batch_query(items, company_name)
-        except Exception as e:
-            logging.error(f"[API] batch_query 失败: {e}", exc_info=True)
-            return {"cols": all_cols, "rows": []}
+        # ── 确保价目表缓存存在 ────────────────────────────────────────────────
+        if not self._pl_rows_cache:
+            logging.info("[API] 价目表缓存为空，从数据库加载…")
+            try:
+                pl_cols, pl_rows = fetch_fulllist(company_name)
+                self._pl_cols_cache = pl_cols
+                self._pl_rows_cache = [
+                    {pl_cols[i]: (pl_rows[j][i] or "") for i in range(len(pl_cols))}
+                    for j in range(len(pl_rows))
+                ]
+                logging.info(f"[API] 价目表缓存加载完成: {len(self._pl_rows_cache)} 行")
+            except Exception as e:
+                logging.error(f"[API] 加载价目表缓存失败: {e}")
 
-        # ── 把每条结果转成与列顺序对齐的列表（同 get_price_list 的 rows 格式）──
+        # ── 加载相似度匹配器 ──────────────────────────────────────────────────
+        find_best_matches = None
+        try:
+            from matcher import find_best_matches as _fbm, get_mode
+            find_best_matches = _fbm
+            logging.info(f"[API] 匹配器就绪，模式: {get_mode()}")
+        except Exception as e:
+            logging.warning(f"[API] 匹配器不可用: {e}")
+
+        # ── 逐条处理 ──────────────────────────────────────────────────────────
         rows = []
-        for r in results:
-            row = [str(r.get(col) or "") for col in all_cols]
+        for item in items:
+            item_no = item.get("item_no", "")
+            code    = item.get("code",    "")
+            desc    = item.get("desc",    "")
+            qty     = item.get("qty",     "")
+            unit    = item.get("unit",    "")
+
+            matched_row  = None
+            match_method = ""
+
+            # Step 1: 代码精确匹配
+            if code:
+                try:
+                    result = query_product(
+                        product_code    = code,
+                        orig_desc       = desc,
+                        qty             = qty,
+                        item_no         = item_no,
+                        unit            = unit,
+                        company_col_idx = col_idx,
+                    )
+                    if result.get("U8代码") not in ("未找到", "", None):
+                        matched_row  = result
+                        match_method = "✅ 代码精确"
+                except Exception as e:
+                    logging.warning(f"[API] 精确匹配失败 {code}: {e}")
+
+            # Step 2: 描述相似度匹配
+            if matched_row is None and find_best_matches and desc and self._pl_rows_cache:
+                try:
+                    sim_results = find_best_matches(
+                        desc, self._pl_rows_cache, top_k=1, min_score=0.1
+                    )
+                    if sim_results:
+                        _, score, pl_row = sim_results[0]
+                        sim_code = pl_row.get("U8代码", "") or pl_row.get("IMPA代码", "")
+                        if sim_code:
+                            try:
+                                result2 = query_product(
+                                    product_code    = sim_code,
+                                    orig_desc       = desc,
+                                    qty             = qty,
+                                    item_no         = item_no,
+                                    unit            = unit,
+                                    company_col_idx = col_idx,
+                                )
+                                if result2.get("U8代码") not in ("未找到", "", None):
+                                    matched_row  = result2
+                                    match_method = f"🔍 描述匹配 {score:.0%}"
+                            except Exception:
+                                pass
+                        if matched_row is None:
+                            matched_row  = pl_row
+                            match_method = f"🔍 描述匹配 {score:.0%}"
+                except Exception as e:
+                    logging.warning(f"[API] 相似度匹配失败: {e}")
+
+            # Step 3: 构造输出行
+            row = []
+            for col in all_cols:
+                if   col == "Item NO.":   row.append(item_no)
+                elif col == "商品代码":   row.append(code)
+                elif col == "客户描述":   row.append(desc)
+                elif col == "数量":       row.append(qty)
+                elif col == "UOM":        row.append(unit)
+                elif col == "匹配方式":   row.append(match_method)
+                elif matched_row:         row.append(str(matched_row.get(col, "") or ""))
+                else:                     row.append("")
             rows.append(row)
 
-        logging.info(f"[API] 虚拟表构建完成: {len(rows)} 行 × {len(all_cols)} 列")
+        logging.info(f"[API] 虚拟表: {len(rows)} 行 × {len(all_cols)} 列")
         return {"cols": all_cols, "rows": rows}
 
-    def query_single(
-        self,
-        code:    str = "",
-        desc:    str = "",
-        qty:     str = "",
-        item_no: str = "",
-        unit:    str = "",
-        company: str = "",
-    ) -> dict:
+    def query_single(self, code="", desc="", qty="", item_no="", unit="", company="") -> dict:
         return query_product(
             product_code    = code,
             orig_desc       = desc,
@@ -158,15 +249,14 @@ class API:
         try:
             import win32clipboard
             tpl = (
-                "Version:0.9\r\n"
-                "StartHTML:{sh:08d}\r\nEndHTML:{eh:08d}\r\n"
+                "Version:0.9\r\nStartHTML:{sh:08d}\r\nEndHTML:{eh:08d}\r\n"
                 "StartFragment:{sf:08d}\r\nEndFragment:{ef:08d}\r\n"
             )
             hdr_len = len(tpl.format(sh=0, eh=0, sf=0, ef=0).encode("utf-8"))
             body    = fragment.encode("utf-8")
             sf      = hdr_len + body.index(b"<!--StartFragment-->") + len(b"<!--StartFragment-->")
             ef      = hdr_len + body.index(b"<!--EndFragment-->")
-            data    = (tpl.format(sh=hdr_len, eh=hdr_len + len(body), sf=sf, ef=ef) + fragment).encode("utf-8")
+            data    = (tpl.format(sh=hdr_len, eh=hdr_len+len(body), sf=sf, ef=ef)+fragment).encode("utf-8")
             win32clipboard.OpenClipboard()
             win32clipboard.EmptyClipboard()
             cf = win32clipboard.RegisterClipboardFormat("HTML Format")
@@ -201,7 +291,7 @@ class API:
         msg["To"]      = ""
         msg["Date"]    = now.strftime("%a, %d %b %Y %H:%M:%S +0800")
         msg.attach(MIMEText(plain_text, "plain", "utf-8"))
-        msg.attach(MIMEText(full_html, "html", "utf-8"))
+        msg.attach(MIMEText(full_html,  "html",  "utf-8"))
         try:
             path = save_path[0] if isinstance(save_path, (tuple, list)) else save_path
             with open(path, "w", encoding="utf-8") as f:
@@ -224,13 +314,20 @@ class API:
         def _run():
             try:
                 from DatabaseUpdate import import_excel_to_db
+                from matcher import clear_cache
                 def _status(msg: str):
                     try:
-                        self._window.evaluate_js(f"console.log('DB Import:', {json.dumps(msg)})")
+                        self._window.evaluate_js(
+                            f"console.log('DB Import:', {json.dumps(msg)})"
+                        )
                     except Exception:
                         pass
                 table_name, row_count = import_excel_to_db(filepath, status_callback=_status)
-                success_msg = f"✅ 导入成功！\n表名：{table_name}\n共导入 {row_count} 行数据\n\n请重新点击「价目表」标签以刷新数据。"
+                self._pl_rows_cache = []
+                self._pl_cols_cache = []
+                clear_cache()
+                success_msg = (f"✅ 导入成功！\n表名：{table_name}\n共导入 {row_count} 行数据\n\n"
+                               "请重新点击「价目表」标签以刷新数据。")
                 self._window.evaluate_js(
                     "window.appState && (window.appState._plLoadedFor = null);"
                     f"alert({json.dumps(success_msg)});"

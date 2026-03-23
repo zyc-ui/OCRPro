@@ -10,53 +10,85 @@
   <link rel="stylesheet" href="style.css"/>
   <style type="text/tailwindcss">
     @layer components {
-      .btn-blue  { @apply px-3 py-1.5 text-xs font-semibold bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors; }
-      .btn-slate { @apply px-3 py-1.5 text-xs font-medium border border-slate-200 text-slate-600 rounded-md hover:bg-slate-50 disabled:opacity-40 transition-colors; }
-      .btn-ghost { @apply px-3 py-1.5 text-xs text-slate-500 hover:bg-slate-100 rounded-md transition-colors; }
-      .input-base { @apply text-sm border border-slate-200 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white; }
+      /* iOS 18 buttons: full-rounded, physical press feedback */
+      .btn-blue  { @apply px-4 py-1.5 text-[13px] font-semibold bg-[#007AFF] text-white rounded-full transition-all active:scale-95 active:opacity-75 disabled:opacity-30 disabled:cursor-not-allowed; }
+      .btn-slate { @apply px-4 py-1.5 text-[13px] font-semibold bg-[#E5E5EA] text-black rounded-full transition-all active:scale-95 active:opacity-75 disabled:opacity-30; }
+      .btn-ghost { @apply px-3 py-1.5 text-[13px] text-[#007AFF] font-medium rounded-full active:bg-[#007AFF]/10 transition-colors; }
+      /* iOS 18 input: no border, frosted fill, rounded-2xl */
+      .input-base { @apply text-[13px] bg-black/5 border-none rounded-2xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#007AFF]/50 transition-all placeholder:text-[#8E8E93]; }
     }
   </style>
   <style>
-    /* ══ 全局布局 ══════════════════════════════════════════ */
-    html, body { height: 100%; margin: 0; overflow: hidden; }
-    body { display: flex; flex-direction: column; background: #f8fafc; }
+    /* ══ 全局布局（iOS 18 基调）══════════════════════════════ */
+    html, body {
+      height: 100%; margin: 0; overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    body { display: flex; flex-direction: column; background: #F2F2F7; }
 
+    /* 顶部导航栏：毛玻璃 */
+    .top-bar {
+      background: rgba(255,255,255,0.78);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border-bottom: 0.5px solid rgba(0,0,0,0.12);
+    }
+
+    /* 内容区：绝对定位叠放容器 */
     .content-wrapper {
       flex: 1; position: relative; overflow: hidden; min-height: 0;
     }
     .tab-panel {
       position: absolute; inset: 0; display: flex; flex-direction: column;
-      overflow: hidden; background: #f8fafc;
-      transition: opacity 0.22s ease, transform 0.22s ease;
+      overflow: hidden; background: #F2F2F7;
+      transition: opacity 0.26s cubic-bezier(0.4,0,0.2,1),
+                  transform 0.26s cubic-bezier(0.4,0,0.2,1);
     }
-    .tab-panel.panel-hidden  { opacity: 0; pointer-events: none; transform: translateY(6px); }
+    .tab-panel.panel-hidden  { opacity: 0; pointer-events: none; transform: translateY(8px); }
     .tab-panel.panel-visible { opacity: 1; pointer-events: auto;  transform: translateY(0); }
 
-    /* ══ 表格容器 ══════════════════════════════════════════ */
+    /* ══ 表格容器：iOS 卡片风格 ═══════════════════════════ */
     #queryGrid, #priceListGrid {
       flex: 1 1 0; min-height: 0; width: 100%;
-      overflow: auto; border: 1px solid #e2e8f0; border-radius: 0 0 6px 6px;
+      overflow: auto;
+      background: #FFFFFF;
+      border: none;
+      border-radius: 0;   /* 嵌入式全宽，上圆角由工具栏提供 */
+      box-shadow: none;
     }
 
-    /* ══ 表格核心 ══════════════════════════════════════════ */
-    .sg-table { table-layout: fixed; border-collapse: collapse; font-size: 12px; font-family: -apple-system, 'Helvetica Neue', sans-serif; }
+    /* ══ 表格核心（iOS 18 列表风格）══════════════════════════ */
+    .sg-table {
+      table-layout: fixed; border-collapse: collapse;
+      font-size: 15px;   /* iOS 正文 15pt */
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    }
 
     .sg-thead { position: sticky; top: 0; z-index: 10; }
     .sg-th {
-      padding: 7px 10px 7px 8px; text-align: left; font-size: 11px; font-weight: 600;
+      padding: 10px 16px; text-align: left;
+      font-size: 13px; font-weight: 600; letter-spacing: 0.01em;
       white-space: nowrap; overflow: hidden;
-      border-right: 1px solid #334155; border-bottom: 2px solid #1e293b;
-      background: #1e293b; color: #f1f5f9; user-select: none; box-sizing: border-box;
+      border-right: none;                      /* 去掉垂直线 */
+      border-bottom: 0.5px solid rgba(0,0,0,0.12);
+      background: rgba(242,242,247,0.95);      /* iOS grouped header */
+      color: #3C3C43CC;                        /* secondary label */
+      user-select: none; box-sizing: border-box;
       cursor: grab;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
     }
     .sg-th:active { cursor: grabbing; }
     .sg-th-text { display: block; overflow: hidden; text-overflow: ellipsis; }
-    .sg-th.col-fixed-hdr    { background: #1d4ed8; color: #eff6ff; border-right-color: #1e40af; }
-    .sg-th.col-price-hdr    { background: #1e40af; border-right-color: #1e3a8a; }
-    .sg-th.col-company-hdr  { background: #0369a1; border-right-color: #075985; }
+
+    /* 色彩区分：前5列 / 价格列 / 公司列 — 仅底部色条，不做深背景 */
+    .sg-th.col-fixed-hdr   { background: rgba(0,122,255,0.08); color: #007AFF; }
+    .sg-th.col-price-hdr   { background: rgba(88,86,214,0.08); color: #5856D6; }
+    .sg-th.col-company-hdr { background: rgba(52,199,89,0.08); color: #34C759; }
 
     /* 列拖拽：源列淡出，兄弟列平滑位移 */
-    .sg-th { transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1); }
+    .sg-th { transition: transform 0.18s cubic-bezier(0.4,0,0.2,1); }
     .sg-th-drag-source { opacity: 0.15 !important; }
 
     /* resize handle */
@@ -64,41 +96,43 @@
       position: absolute; right: 0; top: 0; width: 5px; height: 100%;
       cursor: col-resize; background: transparent; z-index: 2;
     }
-    .sg-resize-handle:hover { background: rgba(255,255,255,0.28); }
+    .sg-resize-handle:hover { background: rgba(0,0,0,0.1); }
 
     /* ══ 数据单元格 ══════════════════════════════════════════ */
     .sg-td {
-      padding: 4px 8px; font-size: 12px;
-      border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0;
-      vertical-align: top; color: #1e293b; box-sizing: border-box;
+      padding: 12px 16px; font-size: 15px;
+      border-right: none;                      /* 去掉垂直线 */
+      border-bottom: 0.5px solid rgba(0,0,0,0.06);
+      vertical-align: top; color: #000000; box-sizing: border-box;
       overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
     }
-    /* 前5列（客户信息）→ 淡蓝色 */
-    .sg-td.col-fixed-5  { background: #eff6ff; }
-    /* 价格列 → 浅蓝（略深，便于区分）*/
-    .sg-td.col-price    { background: #dbeafe; }
-    /* 公司列 → 浅蓝 */
-    .sg-td.col-company  { background: #e0f2fe; }
+    /* 前5列（客户信息）→ 淡蓝底 */
+    .sg-td.col-fixed-5  { background: rgba(0,122,255,0.05); }
+    /* 价格列 → 淡紫底 */
+    .sg-td.col-price    { background: rgba(88,86,214,0.05); }
+    /* 公司列 → 淡绿底 */
+    .sg-td.col-company  { background: rgba(52,199,89,0.05); }
     /* 代码列等宽字体 */
-    .sg-td.col-code     { font-family: 'Consolas','SF Mono',monospace; font-size: 11px; color: #475569; }
+    .sg-td.col-code     { font-family: 'Menlo','Consolas','SF Mono',monospace; font-size: 13px; color: #3C3C43; }
     .sg-td.col-wrap     { white-space: pre-wrap; word-break: break-word; text-overflow: clip; }
 
     /* ══ 行状态 ══════════════════════════════════════════════ */
     .sg-spacer { background: transparent; border: none; }
-    .sg-row    { cursor: pointer; }
-    /* 偶数行：乳白 / 奇数行：暖米白，其他特殊列叠加色 */
-    .sg-row-even .sg-td              { background-color: #fefdf9; }
-    .sg-row-even .sg-td.col-fixed-5  { background: #eff6ff; }
-    .sg-row-even .sg-td.col-price    { background: #dbeafe; }
-    .sg-row-even .sg-td.col-company  { background: #e0f2fe; }
-    .sg-row-odd .sg-td               { background-color: #faf9f5; }
-    .sg-row-odd .sg-td.col-fixed-5   { background: #e8f1ff; }
-    .sg-row-odd .sg-td.col-price     { background: #d4e8fe; }
-    .sg-row-odd .sg-td.col-company   { background: #d9edf8; }
-    .sg-row:hover .sg-td         { background: #f0f4ff !important; color: #1e293b !important; }
-    .sg-row.row-selected .sg-td  { background: #bfdbfe !important; color: #1e293b !important; }
-    .sg-row.row-not-found .sg-td { color: #ef4444 !important; background: #fff5f5 !important; }
-    .sg-row.row-matched .sg-td   { background: #fef9c3 !important; }
+    .sg-row    { cursor: pointer; transition: background 0.1s; }
+    /* 偶数行：纯白 / 奇数行：极淡灰（iOS grouped list）*/
+    .sg-row-even .sg-td              { background-color: #FFFFFF; }
+    .sg-row-even .sg-td.col-fixed-5  { background: rgba(0,122,255,0.05); }
+    .sg-row-even .sg-td.col-price    { background: rgba(88,86,214,0.05); }
+    .sg-row-even .sg-td.col-company  { background: rgba(52,199,89,0.05); }
+    .sg-row-odd .sg-td               { background-color: #F9F9F9; }
+    .sg-row-odd .sg-td.col-fixed-5   { background: rgba(0,122,255,0.07); }
+    .sg-row-odd .sg-td.col-price     { background: rgba(88,86,214,0.07); }
+    .sg-row-odd .sg-td.col-company   { background: rgba(52,199,89,0.07); }
+    /* 交互状态 */
+    .sg-row:hover .sg-td         { background: rgba(0,122,255,0.06) !important; }
+    .sg-row.row-selected .sg-td  { background: rgba(0,122,255,0.14) !important; color: #007AFF !important; }
+    .sg-row.row-not-found .sg-td { color: #FF3B30 !important; background: rgba(255,59,48,0.05) !important; }
+    .sg-row.row-matched .sg-td   { background: rgba(255,204,0,0.15) !important; }
 
     /* ══ 行高滑块 ══════════════════════════════════════════ */
     input[type=range].rh-slider {
@@ -110,21 +144,26 @@
       background: #3b82f6; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.2);
     }
 
-    /* ══ 关键词下拉 ══════════════════════════════════════════ */
+    /* ══ 关键词下拉（iOS popover 风格）══════════════════════ */
     .kw-dropdown {
-      position: absolute; top: calc(100% + 4px); right: 0; z-index: 50;
-      background: white; border: 1px solid #e2e8f0; border-radius: 8px;
-      box-shadow: 0 8px 24px rgba(0,0,0,.12); padding: 10px;
+      position: absolute; top: calc(100% + 6px); right: 0; z-index: 50;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 0.5px solid rgba(0,0,0,0.1);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+      padding: 14px;
       min-width: 320px; max-width: 480px;
     }
     .kw-chip {
-      display: inline-flex; align-items: center; padding: 3px 10px;
-      border-radius: 20px; font-size: 11px; font-weight: 500; cursor: pointer;
-      border: 1px solid #e2e8f0; background: #f8fafc; color: #475569;
-      transition: background .15s, color .15s, border-color .15s; user-select: none;
+      display: inline-flex; align-items: center; padding: 4px 12px;
+      border-radius: 20px; font-size: 13px; font-weight: 500; cursor: pointer;
+      border: none; background: rgba(0,0,0,0.06); color: #3C3C43;
+      transition: background .15s, color .15s; user-select: none;
     }
-    .kw-chip:hover  { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
-    .kw-chip.active { background: #3b82f6; border-color: #3b82f6; color: white; }
+    .kw-chip:hover  { background: rgba(0,122,255,0.1); color: #007AFF; }
+    .kw-chip.active { background: #007AFF; color: white; }
 
     /* ══ Modal 弹入动画 ══════════════════════════════════════ */
     @keyframes modal-in {
@@ -152,16 +191,16 @@
       transition: opacity 0.25s ease 0s, background 0.25s ease 0s,
                   backdrop-filter 0.25s ease 0s;
     }
-    /* Card: close immediately (no delay) */
+    /* Card: close — shrink back quickly */
     .modal-card {
-      opacity: 0; transform: translateY(28px) scale(0.92);
-      transition: opacity 0.16s ease 0s, transform 0.16s ease 0s;
+      opacity: 0; transform: translateY(32px) scale(0.9);
+      transition: opacity 0.18s ease 0s, transform 0.18s cubic-bezier(0.4,0,1,1) 0s;
     }
-    /* Card: open with spring easing after backdrop (70ms delay) */
+    /* Card: open — spring pop after backdrop (80ms delay) */
     .modal-overlay--open .modal-card {
       opacity: 1; transform: translateY(0) scale(1);
-      transition: opacity 0.3s cubic-bezier(0.34, 1.4, 0.64, 1) 0.07s,
-                  transform 0.3s cubic-bezier(0.34, 1.4, 0.64, 1) 0.07s;
+      transition: opacity 0.38s cubic-bezier(0.34,1.56,0.64,1) 0.08s,
+                  transform 0.38s cubic-bezier(0.34,1.56,0.64,1) 0.08s;
     }
 
     /* ══ Tab 动效 ════════════════════════════════════════════ */
@@ -173,14 +212,18 @@
     .tab-btn.active { color: #2563eb; border-bottom-color: #2563eb; font-weight: 600; }
     .tab-btn:hover:not(.active) { color: #334155; }
 
-    /* ══ Toast ════════════════════════════════════════════════ */
+    /* ══ Toast（iOS 通知胶囊）══════════════════════════════ */
     .toast-box {
-      position: fixed; bottom: 24px; right: 24px; z-index: 9999;
-      background: #1e293b; color: #f1f5f9;
-      padding: 12px 20px; border-radius: 10px;
-      font-size: 13px; font-weight: 500;
-      box-shadow: 0 8px 24px rgba(0,0,0,.25);
-      animation: modal-in 0.22s ease both;
+      position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+      z-index: 9999;
+      background: rgba(50,50,52,0.92);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      color: #FFFFFF;
+      padding: 12px 24px; border-radius: 99px;
+      font-size: 15px; font-weight: 500; white-space: nowrap;
+      box-shadow: 0 4px 20px rgba(0,0,0,.2);
+      animation: modal-in 0.28s cubic-bezier(0.34,1.56,0.64,1) both;
     }
 
   </style>
@@ -189,7 +232,7 @@
 <body x-data="App()" x-init="init()" @ocr-result.window="_handleOCRResult($event.detail)">
 
   <!-- ═══ TOP BAR ═══════════════════════════════════════ -->
-  <div class="flex items-center gap-2 px-3 py-2 bg-white border-b border-slate-200 flex-shrink-0 h-12 shadow-sm">
+  <div class="top-bar flex items-center gap-2 px-3 py-2 flex-shrink-0 h-12">
     <span class="text-sm font-bold text-slate-800 tracking-widest select-none mr-1">Seastar</span>
     <div class="w-px h-5 bg-slate-200 mx-1"></div>
 
@@ -277,7 +320,7 @@
                    :checked="colVisibility[col]"
                    @change="toggleCol(col, $event.target.checked)"
                    class="h-3 w-3 accent-blue-500"/>
-            <span class="text-xs text-slate-600 whitespace-nowrap" x-text="col"></span>
+            <span class="text-xs text-slate-600 whitespace-nowrap" x-text="colLabel(col)"></span>
           </label>
         </template>
         <div class="flex-1"></div>
@@ -363,7 +406,7 @@
   <div :class="editDlg.open ? 'modal-overlay modal-overlay--open' : 'modal-overlay'"
        @keydown.escape.window="editDlg.open = false"
        @click.self="editDlg.open = false">
-    <div class="modal-card bg-white rounded-xl shadow-2xl w-[500px] p-6 border border-slate-100"
+    <div class="modal-card bg-white/90 backdrop-blur-2xl rounded-[38px] shadow-2xl w-[520px] p-8 border border-white/40"
          @click.stop>
       <h3 class="text-sm font-semibold text-slate-700 mb-4" x-text="t('edit_title')"></h3>
       <div class="space-y-3">
@@ -399,22 +442,22 @@
   <div :class="exportDlg.open ? 'modal-overlay modal-overlay--open' : 'modal-overlay'"
        @keydown.escape.window="exportDlg.open = false"
        @click.self="exportDlg.open = false">
-    <div class="modal-card bg-white rounded-xl shadow-2xl w-80 p-6 border border-slate-100"
+    <div class="modal-card bg-white/90 backdrop-blur-2xl rounded-[38px] shadow-2xl w-80 p-8 border border-white/40"
          @click.stop>
       <h3 class="text-sm font-semibold text-slate-700 mb-5 text-center" x-text="t('export_title')"></h3>
       <div class="flex flex-col gap-3">
         <button @click="doExport('html')"
-                class="w-full py-3 rounded-lg bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 transition-colors">
+                class="w-full py-3.5 rounded-2xl bg-[#007AFF] text-white text-[15px] font-semibold active:opacity-75 transition-opacity">
           <span x-text="t('copy_html_btn')"></span><br>
-          <span class="text-xs font-normal opacity-80" x-text="t('copy_html_sub')"></span>
+          <span class="text-[12px] font-normal opacity-80" x-text="t('copy_html_sub')"></span>
         </button>
         <button @click="doExport('eml')"
-                class="w-full py-3 rounded-lg bg-green-500 text-white text-sm font-medium hover:bg-green-600 transition-colors">
+                class="w-full py-3.5 rounded-2xl bg-[#34C759] text-white text-[15px] font-semibold active:opacity-75 transition-opacity">
           <span x-text="t('save_eml_btn')"></span><br>
-          <span class="text-xs font-normal opacity-80" x-text="t('save_eml_sub')"></span>
+          <span class="text-[12px] font-normal opacity-80" x-text="t('save_eml_sub')"></span>
         </button>
         <button @click="doExport('text')"
-                class="w-full py-2 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50 transition-colors"
+                class="w-full py-3 rounded-2xl bg-black/6 text-[#3C3C43] text-[15px] font-medium active:opacity-75 transition-opacity"
                 x-text="t('copy_text_btn')"></button>
       </div>
       <button @click="exportDlg.open = false"

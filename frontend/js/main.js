@@ -308,6 +308,11 @@ function App() {
       if (priceListGridApi) priceListGridApi.setHeaderNames(map);
     },
 
+    /** 返回列的当前语言显示名（供复选框标签使用）*/
+    colLabel(col) {
+      return this.lang === 'en' ? (_COL_HEADERS_EN[col] || col) : col;
+    },
+
     // ══════════════════════════════════════════════
     // 标签页
     // ══════════════════════════════════════════════
