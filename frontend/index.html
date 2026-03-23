@@ -51,9 +51,9 @@
     }
     .sg-th:active { cursor: grabbing; }
     .sg-th-text { display: block; overflow: hidden; text-overflow: ellipsis; }
-    .sg-th.col-fixed-hdr    { background: #166534; color: #f0fdf4; border-right-color: #14532d; }
-    .sg-th.col-price-hdr    { background: #1d4ed8; border-right-color: #1e40af; }
-    .sg-th.col-company-hdr  { background: #15803d; border-right-color: #14532d; }
+    .sg-th.col-fixed-hdr    { background: #1d4ed8; color: #eff6ff; border-right-color: #1e40af; }
+    .sg-th.col-price-hdr    { background: #1e40af; border-right-color: #1e3a8a; }
+    .sg-th.col-company-hdr  { background: #0369a1; border-right-color: #075985; }
 
     /* 列拖拽：源列淡出，兄弟列平滑位移 */
     .sg-th { transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1); }
@@ -73,25 +73,30 @@
       vertical-align: top; color: #1e293b; box-sizing: border-box;
       overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
     }
-    .sg-td.col-fixed-5  { background: #f0fdf4; }
-    .sg-td.col-price    { background: #eff6ff; }
-    .sg-td.col-company  { background: #f0fdf4; }
+    /* 前5列（客户信息）→ 淡蓝色 */
+    .sg-td.col-fixed-5  { background: #eff6ff; }
+    /* 价格列 → 浅蓝（略深，便于区分）*/
+    .sg-td.col-price    { background: #dbeafe; }
+    /* 公司列 → 浅蓝 */
+    .sg-td.col-company  { background: #e0f2fe; }
+    /* 代码列等宽字体 */
     .sg-td.col-code     { font-family: 'Consolas','SF Mono',monospace; font-size: 11px; color: #475569; }
     .sg-td.col-wrap     { white-space: pre-wrap; word-break: break-word; text-overflow: clip; }
 
     /* ══ 行状态 ══════════════════════════════════════════════ */
     .sg-spacer { background: transparent; border: none; }
     .sg-row    { cursor: pointer; }
-    .sg-row-even .sg-td          { background-color: #ffffff; }
-    .sg-row-even .sg-td.col-fixed-5  { background: #f0fdf4; }
-    .sg-row-even .sg-td.col-price    { background: #eff6ff; }
-    .sg-row-even .sg-td.col-company  { background: #f0fdf4; }
-    .sg-row-odd .sg-td           { background-color: #f8fafc; }
-    .sg-row-odd .sg-td.col-fixed-5   { background: #e7faf0; }
-    .sg-row-odd .sg-td.col-price     { background: #e8f0fd; }
-    .sg-row-odd .sg-td.col-company   { background: #e7faf0; }
+    /* 偶数行：乳白 / 奇数行：暖米白，其他特殊列叠加色 */
+    .sg-row-even .sg-td              { background-color: #fefdf9; }
+    .sg-row-even .sg-td.col-fixed-5  { background: #eff6ff; }
+    .sg-row-even .sg-td.col-price    { background: #dbeafe; }
+    .sg-row-even .sg-td.col-company  { background: #e0f2fe; }
+    .sg-row-odd .sg-td               { background-color: #faf9f5; }
+    .sg-row-odd .sg-td.col-fixed-5   { background: #e8f1ff; }
+    .sg-row-odd .sg-td.col-price     { background: #d4e8fe; }
+    .sg-row-odd .sg-td.col-company   { background: #d9edf8; }
     .sg-row:hover .sg-td         { background: #f0f4ff !important; color: #1e293b !important; }
-    .sg-row.row-selected .sg-td  { background: #dbeafe !important; color: #1e293b !important; }
+    .sg-row.row-selected .sg-td  { background: #bfdbfe !important; color: #1e293b !important; }
     .sg-row.row-not-found .sg-td { color: #ef4444 !important; background: #fff5f5 !important; }
     .sg-row.row-matched .sg-td   { background: #fef9c3 !important; }
 
@@ -178,14 +183,6 @@
       animation: modal-in 0.22s ease both;
     }
 
-    /* ══ 取消选中动画（蓝色从四周向中心收缩回原色）══════════════ */
-    @keyframes sg-deselect-shrink {
-      0%   { box-shadow: inset 0 0 0 9999px rgba(219, 234, 254, 0.95); }
-      100% { box-shadow: inset 0 0 0 0px   rgba(219, 234, 254, 0);     }
-    }
-    .sg-row.row-deselecting .sg-td {
-      animation: sg-deselect-shrink 0.42s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-    }
   </style>
 </head>
 

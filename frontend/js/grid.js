@@ -51,12 +51,13 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
   table.append(colgroup, thead, tbody);
   el.appendChild(table);
 
-  let _cols      = [];
-  let _rows      = [];
-  let _colWidths = {};
-  let _matchSet  = new Set();
-  let _selIdx    = -1;
-  let _rowH      = 72;
+  let _cols        = [];
+  let _rows        = [];
+  let _colWidths   = {};
+  let _matchSet    = new Set();
+  let _selIdx      = -1;
+  let _rowH        = 72;
+  let _headerNames = {};   // col key → display label（语言切换时更新）
 
   // ── 列拖拽状态（每实例独立，pointer-events 实现）──
   let _dragSrcIdx  = null;
@@ -100,7 +101,7 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
 
       const span = document.createElement('span');
       span.className   = 'sg-th-text';
-      span.textContent = col;
+      span.textContent = _headerNames[col] || col;
       th.appendChild(span);
 
       // ── 列宽调整 handle（右边缘 resize）──
@@ -278,8 +279,6 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
     });
 
     tr.addEventListener('click', () => {
-      // 停止任何正在进行的取消选中动画
-      tbody.querySelectorAll('.row-deselecting').forEach(r => r.classList.remove('row-deselecting'));
       _selIdx = i;
       tbody.querySelectorAll('tr[data-idx]').forEach(r => {
         const ri = +r.dataset.idx;
@@ -306,22 +305,6 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
   }
 
   el.addEventListener('scroll', scheduleRender, { passive: true });
-
-  // ── 点击空白处取消选中（含收缩动画）──
-  el.addEventListener('click', e => {
-    if (_selIdx < 0) return;                          // 无选中行，跳过
-    if (e.target.closest('tr[data-idx]')) return;     // 点在数据行上，行自身处理
-    if (e.target.closest('.sg-thead'))    return;     // 点在表头上，忽略
-
-    // 对可见的已选行播放动画
-    tbody.querySelectorAll('.row-selected').forEach(tr => {
-      tr.classList.remove('row-selected');
-      tr.classList.add('row-deselecting');
-      tr.addEventListener('animationend', () => tr.classList.remove('row-deselecting'), { once: true });
-    });
-    _selIdx = -1;
-    onRowSelected?.({ rowIndex: -1, data: null });
-  });
 
   return {
     setGridOption(key, value) {
@@ -355,6 +338,14 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
     sizeColumnsToFit()      { /* no-op */ },
     getRows()               { return _rows; },
     getCols()               { return _cols;  },
+    /** 更新表头显示文字（不改变内部 key）, map: {colKey: displayLabel} */
+    setHeaderNames(map) {
+      _headerNames = map || {};
+      const ths = thead.querySelectorAll('th.sg-th .sg-th-text');
+      _cols.forEach((col, ci) => {
+        if (ths[ci]) ths[ci].textContent = _headerNames[col] || col;
+      });
+    },
   };
 }
 

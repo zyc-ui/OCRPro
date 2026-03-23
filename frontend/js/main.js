@@ -7,6 +7,24 @@ const _ALWAYS_SHOW = new Set([
   'Anchor Marine','RMS Marine','Fuji Trading','Con Lash',
 ]);
 
+// 列名中→英翻译表（表头切换语言时使用）
+const _COL_HEADERS_EN = {
+  // 固定5列（客户信息）
+  '商品代码':        'Item Code',
+  '客户描述':        'Customer Desc',
+  '数量':            'Qty',
+  // 数据列
+  'U8代码':          'U8 Code',
+  'IMPA代码':        'IMPA Code',
+  '描述':            'Description',
+  '详情':            'Details',
+  '报价':            'Offer',
+  '备注1':           'Remark 1',
+  '备注2':           'Remark 2',
+  '库存量':          'Stock Qty',
+  '单位':            'Unit',
+};
+
 // ══════════════════════════════════════════════════════════
 // 翻译字典
 // ══════════════════════════════════════════════════════════
@@ -250,6 +268,8 @@ function App() {
         // 若 codesText 是默认提示，同步翻译
         const defaults = ['未识别到商品代码', 'No item codes recognized'];
         if (defaults.includes(this.codesText)) this.codesText = this.t('no_item_code');
+        // 刷新表格列标题
+        this.refreshGridHeaders();
       });
 
       this.$watch('activeTab', async tab => {
@@ -277,6 +297,15 @@ function App() {
     // ══════════════════════════════════════════════
     toggleLang() {
       this.lang = this.lang === 'zh' ? 'en' : 'zh';
+    },
+
+    // ══════════════════════════════════════════════
+    // 列标题语言刷新
+    // ══════════════════════════════════════════════
+    refreshGridHeaders() {
+      const map = this.lang === 'en' ? _COL_HEADERS_EN : {};
+      if (queryGridApi)     queryGridApi.setHeaderNames(map);
+      if (priceListGridApi) priceListGridApi.setHeaderNames(map);
     },
 
     // ══════════════════════════════════════════════
