@@ -1,5 +1,8 @@
 """
-RFQ 询价解析工具（本地显示）
+RFQ 询价解析工具
+- parse_rfq_url(source)  : 供 api.py 调用的函数接口，返回 {cols, rows}
+- main()                 : 独立运行时的 CLI 界面（保留原有功能）
+
 依赖安装：pip install requests beautifulsoup4 lxml tabulate
 """
 import sys, os, requests
@@ -17,24 +20,29 @@ DISPLAY_COLS = [
     ("UOM",              "uom"),
 ]
 
-def load_html(source):
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 内部辅助
+# ─────────────────────────────────────────────────────────────────────────────
+
+def load_html(source: str) -> "BeautifulSoup":
+    """从 URL 或本地 HTML 文件加载内容，返回 BeautifulSoup 对象。"""
     if os.path.isfile(source):
         with open(source, "r", encoding="utf-8", errors="replace") as f:
             html = f.read()
-        print("      ✓ 本地文件读取成功")
     else:
         if not source.startswith("http"):
             source = "https://" + source
         resp = session.get(source, timeout=30)
         resp.raise_for_status()
         html = resp.text
-        print("      ✓ 页面抓取成功")
     return BeautifulSoup(html, "lxml")
 
-def find_rfq_table(soup):
+
+def find_rfq_table(soup: "BeautifulSoup"):
     """
-    找到表头行里每个单元格都是独立短文本、
-    且同时包含 sevenseas/description/qty/uom 关键字的表格。
+    找到同时包含 sevenseas / description / qty / uom 关键字的询价表格。
+    返回 (table, raw_headers, data_rows)；未找到时返回 (None, None, None)。
     """
     REQUIRED = ["sevenseas", "description", "qty", "uom"]
     for table in soup.find_all("table"):
@@ -42,16 +50,72 @@ def find_rfq_table(soup):
         if not rows:
             continue
         header_cells = rows[0].find_all(["th", "td"])
-        # 关键判断：表头每格文本要短（不是把所有数据塞在一起的合并格）
         cell_texts = [c.get_text(strip=True) for c in header_cells]
-        if any(len(t) > 60 for t in cell_texts):   # 超过60字符说明是合并格，跳过
+        # 超过 60 字符说明是合并格，跳过
+        if any(len(t) > 60 for t in cell_texts):
             continue
         combined = " ".join(t.lower() for t in cell_texts)
         if all(kw in combined for kw in REQUIRED):
             return table, cell_texts, rows[1:]
     return None, None, None
 
-def parse_and_display(soup):
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 公开函数接口（供 api.py 调用）
+# ─────────────────────────────────────────────────────────────────────────────
+
+def parse_rfq_url(source: str) -> dict:
+    """
+    解析 SevenSeas 询价链接（URL 或本地 HTML 文件路径）。
+
+    成功返回：
+        {
+            "cols": ["#", "SevenSeas Code", "Item Description", "Req Qty", "UOM"],
+            "rows": [["1", "7912345", "Pump seal kit", "2", "SET"], ...]
+        }
+    失败抛出 ValueError 或网络异常。
+    """
+    soup = load_html(source)
+    table, raw_headers, data_rows = find_rfq_table(soup)
+    if table is None:
+        raise ValueError("未找到询价表格，请确认链接或文件正确。")
+
+    # 建立列索引映射
+    col_indices = [
+        (name, next((i for i, h in enumerate(raw_headers) if kw in h.lower()), -1))
+        for name, kw in DISPLAY_COLS
+    ]
+
+    parsed_rows: list[dict] = []
+    row_num = 1
+    for tr in data_rows:
+        cells = tr.find_all(["td", "th"])
+        if not cells:
+            continue
+        texts = [c.get_text(strip=True) for c in cells]
+        row_dict = {
+            name: (texts[idx] if 0 <= idx < len(texts) else "")
+            for name, idx in col_indices
+        }
+        # 至少 SevenSeas Code 或 Item Description 其中一列非空才算有效行
+        if row_dict.get("SevenSeas Code") or row_dict.get("Item Description"):
+            row_dict["#"] = str(row_num)
+            row_num += 1
+            parsed_rows.append(row_dict)
+
+    if not parsed_rows:
+        raise ValueError("表格中没有有效数据行。")
+
+    cols = ["#"] + [name for name, _ in DISPLAY_COLS]
+    rows = [[r.get(c, "") for c in cols] for r in parsed_rows]
+    return {"cols": cols, "rows": rows}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CLI 独立运行入口（原有功能保留）
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _parse_and_display_cli(soup: "BeautifulSoup") -> None:
     print("\n[2/2] 定位询价表格...")
     table, raw_headers, data_rows = find_rfq_table(soup)
     if table is None:
@@ -63,7 +127,6 @@ def parse_and_display(soup):
     for i, h in enumerate(raw_headers):
         print(f"  第{i+1:>2}列: {h}")
 
-    # 列索引映射
     col_indices = []
     print("\n【列识别结果】")
     for display_name, keyword in DISPLAY_COLS:
@@ -74,7 +137,6 @@ def parse_and_display(soup):
             print(f"  ✗ {display_name:20s} → 未找到")
         col_indices.append((display_name, idx))
 
-    # 解析数据行
     display_rows = []
     for tr in data_rows:
         cells = tr.find_all(["td", "th"])
@@ -98,7 +160,8 @@ def parse_and_display(soup):
     print(tabulate(data, headers=headers, tablefmt="rounded_outline",
                    maxcolwidths=[None, None, 50, None, None]))
 
-def main():
+
+def main() -> None:
     print("=" * 60)
     print("      RFQ 询价表格解析工具（本地显示）")
     print("=" * 60)
@@ -106,8 +169,9 @@ def main():
     source = input("\n请输入链接或文件路径：").strip().strip('"')
     print(f"\n[1/2] 读取内容：{source}")
     soup = load_html(source)
-    parse_and_display(soup)
+    _parse_and_display_cli(soup)
     input("\n按 Enter 退出程序。")
+
 
 if __name__ == "__main__":
     main()

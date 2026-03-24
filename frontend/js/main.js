@@ -9,11 +9,9 @@ const _ALWAYS_SHOW = new Set([
 
 // 列名中→英翻译表（表头切换语言时使用）
 const _COL_HEADERS_EN = {
-  // 固定5列（客户信息）
   '商品代码':        'Item Code',
   '客户描述':        'Customer Desc',
   '数量':            'Qty',
-  // 数据列
   'U8代码':          'U8 Code',
   'IMPA代码':        'IMPA Code',
   '描述':            'Description',
@@ -63,6 +61,7 @@ const _I18N = {
     lbl_uom:         'UOM',
     cancel:          '取消',
     save:            '保存',
+    confirm_btn:     '确定',
     match_btn:       'Match 重新查询',
     export_title:    '选择导出方式',
     copy_html_btn:   '复制 HTML 表格',
@@ -72,7 +71,7 @@ const _I18N = {
     copy_text_btn:   '复制纯文本',
     no_item_code:    '未识别到商品代码',
     scan_no_code:    '识别到结果但无商品代码，请重试',
-    no_items_alert:  '请先使用 OCR 识别商品代码',
+    no_items_alert:  '请先使用 OCR 识别或粘贴链接获取商品代码',
     no_company:      '请先选择公司',
     query_fmt_err:   '查询返回格式异常',
     query_no_data:   '查询完成但无数据，请确认数据库已导入',
@@ -98,6 +97,15 @@ const _I18N = {
     placeholder_sel: '双击选择',
     lang_toggle:     'EN',
     fulllist_btn:    'FullListUpdate',
+    // ── RFQ 粘贴链接 ──
+    paste_link_btn:   '粘贴链接',
+    paste_link_title: '粘贴询价链接',
+    paste_link_sub:   'SevenSeas RFQ · 自动解析表格 · 匹配价目',
+    paste_link_ph:    '请粘贴 SevenSeas 询价页面链接或本地 HTML 文件路径…',
+    parsing:          '解析中…',
+    parse_err:        '解析失败：',
+    rfq_no_data:      '未能解析到有效询价数据，请检查链接是否正确',
+    rfq_toast:        '已导入 {n} 条询价，正在匹配…',
   },
   en: {
     app_name:        'Seastar',
@@ -133,6 +141,7 @@ const _I18N = {
     lbl_uom:         'UOM',
     cancel:          'Cancel',
     save:            'Save',
+    confirm_btn:     'Confirm',
     match_btn:       'Match & Re-query',
     export_title:    'Select Export Method',
     copy_html_btn:   'Copy HTML Table',
@@ -142,7 +151,7 @@ const _I18N = {
     copy_text_btn:   'Copy Plain Text',
     no_item_code:    'No item codes recognized',
     scan_no_code:    'Result found but no item code, please retry',
-    no_items_alert:  'Please scan item codes with OCR first',
+    no_items_alert:  'Please scan item codes with OCR or paste a link first',
     no_company:      'Please select a company first',
     query_fmt_err:   'Query response format error',
     query_no_data:   'Query complete but no data. Please import the database.',
@@ -168,6 +177,15 @@ const _I18N = {
     placeholder_sel: 'Dbl-click to select',
     lang_toggle:     '中',
     fulllist_btn:    'FullListUpdate',
+    // ── RFQ paste link ──
+    paste_link_btn:   'Paste Link',
+    paste_link_title: 'Paste RFQ Link',
+    paste_link_sub:   'SevenSeas RFQ · Auto-parse · Match prices',
+    paste_link_ph:    'Paste SevenSeas RFQ page URL or local HTML file path…',
+    parsing:          'Parsing…',
+    parse_err:        'Parse error: ',
+    rfq_no_data:      'No valid RFQ data found, please check the link',
+    rfq_toast:        'Imported {n} RFQ items, matching…',
   },
 };
 
@@ -207,11 +225,16 @@ function App() {
     plKwSel:     [],
     plKwOpen:    false,
 
+    // ── RFQ 列名重映射（Seven Seas 询价专用）──
+    // 格式：{ 内部列名: RFQ 显示列名 }，null 表示未激活
+    _rfqHeaderMap: null,
+
     // ── Toast ──
     toast: { show: false, msg: '', _timer: null },
 
-    editDlg:   { open:false, rowIndex:-1, item_no:'', code:'', desc:'', qty:'', unit:'' },
-    exportDlg: { open:false },
+    editDlg:       { open:false, rowIndex:-1, item_no:'', code:'', desc:'', qty:'', unit:'' },
+    exportDlg:     { open:false },
+    pasteLinkDlg:  { open:false, url:'', isParsing:false },
 
     tabs: [
       { id: 'query',     label: '价格查询' },
@@ -261,14 +284,11 @@ function App() {
 
       initQueryGrid(this);
 
-      // 语言切换时同步动态文本
       this.$watch('lang', () => {
         this.tabs[0].label = this.t('tab_query');
         this.tabs[1].label = this.t('tab_pricelist');
-        // 若 codesText 是默认提示，同步翻译
         const defaults = ['未识别到商品代码', 'No item codes recognized'];
         if (defaults.includes(this.codesText)) this.codesText = this.t('no_item_code');
-        // 刷新表格列标题
         this.refreshGridHeaders();
       });
 
@@ -300,16 +320,20 @@ function App() {
     },
 
     // ══════════════════════════════════════════════
-    // 列标题语言刷新
+    // 列标题语言刷新（合并 RFQ 重映射）
     // ══════════════════════════════════════════════
     refreshGridHeaders() {
-      const map = this.lang === 'en' ? _COL_HEADERS_EN : {};
-      if (queryGridApi)     queryGridApi.setHeaderNames(map);
-      if (priceListGridApi) priceListGridApi.setHeaderNames(map);
+      const langMap = this.lang === 'en' ? _COL_HEADERS_EN : {};
+      // RFQ 映射优先级高于语言映射
+      const queryMap = { ...langMap, ...(this._rfqHeaderMap || {}) };
+      if (queryGridApi)     queryGridApi.setHeaderNames(queryMap);
+      if (priceListGridApi) priceListGridApi.setHeaderNames(langMap);
     },
 
     /** 返回列的当前语言显示名（供复选框标签使用）*/
     colLabel(col) {
+      // RFQ 模式下优先显示 RFQ 列名
+      if (this._rfqHeaderMap?.[col]) return this._rfqHeaderMap[col];
       return this.lang === 'en' ? (_COL_HEADERS_EN[col] || col) : col;
     },
 
@@ -323,6 +347,13 @@ function App() {
                     'Anchor Marine','RMS Marine','Fuji Trading','Con Lash'];
       this.companyColLabel = LIST.includes(this.company) ? this.company : 'High / Medium Price';
       this._plLoadedFor = null;
+      // 切换公司时重置 RFQ 列名映射
+      if (this.company !== 'Seven Seas' && this._rfqHeaderMap) {
+        this._rfqHeaderMap = null;
+        if (queryGridApi) queryGridApi.setHeaderNames(
+          this.lang === 'en' ? _COL_HEADERS_EN : {}
+        );
+      }
     },
 
     // ══════════════════════════════════════════════
@@ -348,10 +379,7 @@ function App() {
       if (!valid.length) { this.codesText = this.t('scan_no_code'); return; }
 
       if (this._ocrAppend) {
-        // ── 追加模式：直接加到查询表格末尾 + Toast ──
         this.productItems = [...this.productItems, ...valid];
-
-        // 使用已有列结构，或退回到基础5列
         const baseCols = this._lastQueryAllCols.length
           ? this._lastQueryAllCols
           : ['Item NO.', '商品代码', '客户描述', '数量', 'UOM'];
@@ -368,24 +396,80 @@ function App() {
         });
 
         this.queryResults = [...this.queryResults, ...newRows];
-
         const visCols = this._lastQueryAllCols.length
           ? this._visibleQueryCols(this._lastQueryAllCols)
           : baseCols;
 
         updateQueryGrid(this.queryResults, visCols);
         if (queryGridApi) queryGridApi.setRowHeight(this.rowHeight);
-
-        // 3 秒 Toast
         this.showToast(this.tf('append_toast', { n: valid.length }));
-
         this.codesText = this.productItems
           .map(i => i.desc ? `${i.code}: ${i.desc}` : i.code).join('  |  ');
       } else {
-        // ── 普通识别模式 ──
         this.productItems = valid;
         this.codesText = this.productItems
           .map(i => i.desc ? `${i.code}: ${i.desc}` : i.code).join('  |  ');
+      }
+    },
+
+    // ══════════════════════════════════════════════
+    // RFQ 粘贴链接
+    // ══════════════════════════════════════════════
+    openPasteLinkDialog() {
+      this.pasteLinkDlg = { open: true, url: '', isParsing: false };
+    },
+
+    async submitPasteLink() {
+      const url = this.pasteLinkDlg.url.trim();
+      if (!url) return;
+      this.pasteLinkDlg.isParsing = true;
+      try {
+        const d = await window.pywebview.api.parse_rfq(url);
+
+        if (d.error) {
+          alert(this.t('parse_err') + d.error);
+          return;
+        }
+        if (!d.rows?.length) {
+          alert(this.t('rfq_no_data'));
+          return;
+        }
+
+        // 建立列索引快查表
+        const ci = {};
+        d.cols.forEach((c, i) => { ci[c] = i; });
+
+        // 映射到 productItems 格式
+        this.productItems = d.rows.map(row => ({
+          item_no: row[ci['#']]                ?? '',
+          code:    row[ci['SevenSeas Code']]   ?? '',
+          desc:    row[ci['Item Description']] ?? '',
+          qty:     row[ci['Req Qty']]          ?? '',
+          unit:    row[ci['UOM']]              ?? '',
+        }));
+
+        this.codesText = this.productItems
+          .map(i => i.desc ? `${i.code}: ${i.desc}` : i.code).join('  |  ');
+
+        this.pasteLinkDlg.open = false;
+        this.showToast(this.tf('rfq_toast', { n: this.productItems.length }), 4000);
+
+        // 自动触发价格查询（描述优先匹配）
+        await this.queryPrices();
+
+        // 查询完成后将列头重命名为 RFQ 原始表头
+        this._rfqHeaderMap = {
+          '商品代码': 'SevenSeas Code',
+          '客户描述': 'Item Description',
+          '数量':     'Req Qty',
+        };
+        if (queryGridApi) queryGridApi.setHeaderNames(this._rfqHeaderMap);
+
+      } catch (e) {
+        console.error('[RFQ]', e);
+        alert(this.t('parse_err') + String(e));
+      } finally {
+        this.pasteLinkDlg.isParsing = false;
       }
     },
 
@@ -448,7 +532,6 @@ function App() {
     addBlankRow() {
       const blank = { 'Item NO.':'', '商品代码': this.t('placeholder_sel'), '客户描述':'', '数量':'', 'UOM':'' };
       this.flDisplay.forEach(n => { blank[n] = ''; });
-      // 有选中行则插在其下方，否则追加到末尾
       const insertAt = this.selectedRowIdx >= 0
         ? this.selectedRowIdx + 1
         : this.queryResults.length;
@@ -569,6 +652,10 @@ function App() {
         this.queryResults[rowIdx] = res;
         updateQueryGrid(this.queryResults, this._visibleQueryCols(
           this._lastQueryAllCols.length ? this._lastQueryAllCols : Object.keys(res)));
+        // 回填后重新应用 RFQ 列头（如果激活）
+        if (queryGridApi && this._rfqHeaderMap) {
+          queryGridApi.setHeaderNames(this._rfqHeaderMap);
+        }
       } catch (e) { alert(this.t('requery_fail') + e); }
     },
 
@@ -600,6 +687,9 @@ function App() {
         this.queryResults[i] = res;
         updateQueryGrid(this.queryResults, this._visibleQueryCols(
           this._lastQueryAllCols.length ? this._lastQueryAllCols : Object.keys(res)));
+        if (queryGridApi && this._rfqHeaderMap) {
+          queryGridApi.setHeaderNames(this._rfqHeaderMap);
+        }
       } catch (e) { alert(this.t('requery_fail') + e); }
     },
 
@@ -623,16 +713,19 @@ function App() {
       }
     },
     _buildExportData() {
+      // 导出时优先使用 RFQ 列名（如果激活），否则按 colVisibility 过滤
       const visCols = Object.entries(this.colVisibility).filter(([,v]) => v).map(([k]) => k);
+      const rfqMap  = this._rfqHeaderMap || {};
       const TH = 'border:1px solid #666;padding:6px 10px;background:#d0d7e3;font-weight:bold;font-family:Arial,sans-serif;font-size:13px;white-space:nowrap;';
       const TE = 'border:1px solid #999;padding:5px 10px;font-family:Arial,sans-serif;font-size:12px;background:#ffffff;';
       const TO = 'border:1px solid #999;padding:5px 10px;font-family:Arial,sans-serif;font-size:12px;background:#f0f4fa;';
-      const headers = visCols.map(c => `<th style="${TH}">${c}</th>`).join('');
+      const headers = visCols.map(c => `<th style="${TH}">${rfqMap[c] || c}</th>`).join('');
       const body    = this.queryResults.map((row, i) =>
         `<tr>${visCols.map(c => `<td style="${i%2?TO:TE}">${row[c]||''}</td>`).join('')}</tr>`
       ).join('\n');
       const html  = `<table style="border-collapse:collapse;border:2px solid #555;font-family:Arial,sans-serif;"><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table>`;
-      const plain = [visCols.join(' | '), '-'.repeat(80),
+      const displayCols = visCols.map(c => rfqMap[c] || c);
+      const plain = [displayCols.join(' | '), '-'.repeat(80),
         ...this.queryResults.map(r => visCols.map(c => r[c]||'').join(' | '))].join('\n');
       return { html, plain };
     },
@@ -645,7 +738,12 @@ function App() {
       this.company = ''; this.companyColLabel = '';
       this.codesText = this.t('no_item_code');
       this.selectedRowIdx = -1; this._lastQueryAllCols = [];
-      if (queryGridApi) queryGridApi.setGridOption('rowData', []);
+      // 重置 RFQ 状态
+      this._rfqHeaderMap = null;
+      if (queryGridApi) {
+        queryGridApi.setGridOption('rowData', []);
+        queryGridApi.setHeaderNames({});
+      }
     },
     async openDBUpdate() { await window.pywebview.api.open_db_update(); },
   };

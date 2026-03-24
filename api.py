@@ -228,7 +228,6 @@ class API:
             matched_row["匹配方式"] = match_method
             return matched_row
 
-        # 未匹配时返回基础查询结果（U8代码会是"未找到"）
         result = query_product(
             product_code    = code,
             orig_desc       = desc,
@@ -251,6 +250,27 @@ class API:
             unit            = unit,
             company_col_idx = get_company_col_idx(company),
         )
+
+    # ── RFQ 询价解析 ────────────────────────────────────────────────────────
+
+    def parse_rfq(self, url: str) -> dict:
+        """
+        解析 SevenSeas 询价链接（URL 或本地 HTML 文件路径）。
+        成功返回 {"cols": [...], "rows": [[...], ...]}
+        失败返回 {"error": "错误描述", "cols": [], "rows": []}
+        """
+        try:
+            from Rfq_quotation_tool import parse_rfq_url
+            result = parse_rfq_url(url.strip())
+            logging.info(f"[API] parse_rfq 成功: {len(result.get('rows', []))} 行")
+            return result
+        except ImportError as e:
+            msg = f"缺少依赖库（requests / beautifulsoup4 / lxml），请运行 pip install 安装：{e}"
+            logging.error(f"[API] parse_rfq ImportError: {e}")
+            return {"error": msg, "cols": [], "rows": []}
+        except Exception as e:
+            logging.error(f"[API] parse_rfq 失败: {e}")
+            return {"error": str(e), "cols": [], "rows": []}
 
     # ── OCR ────────────────────────────────────────────────────────────────
 

@@ -10,16 +10,13 @@
   <link rel="stylesheet" href="style.css"/>
   <style type="text/tailwindcss">
     @layer components {
-      /* iOS 18 buttons: full-rounded, physical press feedback */
       .btn-blue  { @apply px-4 py-1.5 text-[13px] font-semibold bg-[#007AFF] text-white rounded-full transition-all active:scale-95 active:opacity-75 disabled:opacity-30 disabled:cursor-not-allowed; }
       .btn-slate { @apply px-4 py-1.5 text-[13px] font-semibold bg-[#E5E5EA] text-black rounded-full transition-all active:scale-95 active:opacity-75 disabled:opacity-30; }
       .btn-ghost { @apply px-3 py-1.5 text-[13px] text-[#007AFF] font-medium rounded-full active:bg-[#007AFF]/10 transition-colors; }
-      /* iOS 18 input: no border, frosted fill, rounded-2xl */
       .input-base { @apply text-[13px] bg-black/5 border-none rounded-2xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#007AFF]/50 transition-all placeholder:text-[#8E8E93]; }
     }
   </style>
   <style>
-    /* ══ 全局布局（iOS 18 基调）══════════════════════════════ */
     html, body {
       height: 100%; margin: 0; overflow: hidden;
       font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', sans-serif;
@@ -27,7 +24,6 @@
     }
     body { display: flex; flex-direction: column; background: #F2F2F7; }
 
-    /* 顶部导航栏：毛玻璃 */
     .top-bar {
       background: rgba(255,255,255,0.78);
       backdrop-filter: blur(20px) saturate(180%);
@@ -35,7 +31,6 @@
       border-bottom: 0.5px solid rgba(0,0,0,0.12);
     }
 
-    /* 内容区：绝对定位叠放容器 */
     .content-wrapper {
       flex: 1; position: relative; overflow: hidden; min-height: 0;
     }
@@ -48,20 +43,18 @@
     .tab-panel.panel-hidden  { opacity: 0; pointer-events: none; transform: translateY(8px); }
     .tab-panel.panel-visible { opacity: 1; pointer-events: auto;  transform: translateY(0); }
 
-    /* ══ 表格容器：iOS 卡片风格 ═══════════════════════════ */
     #queryGrid, #priceListGrid {
       flex: 1 1 0; min-height: 0; width: 100%;
       overflow: auto;
       background: #FFFFFF;
       border: none;
-      border-radius: 0;   /* 嵌入式全宽，上圆角由工具栏提供 */
+      border-radius: 0;
       box-shadow: none;
     }
 
-    /* ══ 表格核心（iOS 18 列表风格）══════════════════════════ */
     .sg-table {
       table-layout: fixed; border-collapse: collapse;
-      font-size: 15px;   /* iOS 正文 15pt */
+      font-size: 15px;
       font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
     }
 
@@ -70,10 +63,10 @@
       padding: 10px 16px; text-align: left;
       font-size: 13px; font-weight: 600; letter-spacing: 0.01em;
       white-space: nowrap; overflow: hidden;
-      border-right: none;                      /* 去掉垂直线 */
+      border-right: none;
       border-bottom: 0.5px solid rgba(0,0,0,0.12);
-      background: rgba(242,242,247,0.95);      /* iOS grouped header */
-      color: #3C3C43CC;                        /* secondary label */
+      background: rgba(242,242,247,0.95);
+      color: #3C3C43CC;
       user-select: none; box-sizing: border-box;
       cursor: grab;
       backdrop-filter: blur(10px);
@@ -82,44 +75,34 @@
     .sg-th:active { cursor: grabbing; }
     .sg-th-text { display: block; overflow: hidden; text-overflow: ellipsis; }
 
-    /* 色彩区分：前5列 / 价格列 / 公司列 — 仅底部色条，不做深背景 */
     .sg-th.col-fixed-hdr   { background: rgba(0,122,255,0.08); color: #007AFF; }
     .sg-th.col-price-hdr   { background: rgba(88,86,214,0.08); color: #5856D6; }
     .sg-th.col-company-hdr { background: rgba(52,199,89,0.08); color: #34C759; }
 
-    /* 列拖拽：源列淡出，兄弟列平滑位移 */
     .sg-th { transition: transform 0.18s cubic-bezier(0.4,0,0.2,1); }
     .sg-th-drag-source { opacity: 0.15 !important; }
 
-    /* resize handle */
     .sg-resize-handle {
       position: absolute; right: 0; top: 0; width: 5px; height: 100%;
       cursor: col-resize; background: transparent; z-index: 2;
     }
     .sg-resize-handle:hover { background: rgba(0,0,0,0.1); }
 
-    /* ══ 数据单元格 ══════════════════════════════════════════ */
     .sg-td {
       padding: 12px 16px; font-size: 15px;
-      border-right: none;                      /* 去掉垂直线 */
+      border-right: none;
       border-bottom: 0.5px solid rgba(0,0,0,0.06);
       vertical-align: top; color: #000000; box-sizing: border-box;
       overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
     }
-    /* 前5列（客户信息）→ 淡蓝底 */
     .sg-td.col-fixed-5  { background: rgba(0,122,255,0.05); }
-    /* 价格列 → 淡紫底 */
     .sg-td.col-price    { background: rgba(88,86,214,0.05); }
-    /* 公司列 → 淡绿底 */
     .sg-td.col-company  { background: rgba(52,199,89,0.05); }
-    /* 代码列等宽字体 */
     .sg-td.col-code     { font-family: 'Menlo','Consolas','SF Mono',monospace; font-size: 13px; color: #3C3C43; }
     .sg-td.col-wrap     { white-space: pre-wrap; word-break: break-word; text-overflow: clip; }
 
-    /* ══ 行状态 ══════════════════════════════════════════════ */
     .sg-spacer { background: transparent; border: none; }
     .sg-row    { cursor: pointer; transition: background 0.1s; }
-    /* 偶数行：纯白 / 奇数行：极淡灰（iOS grouped list）*/
     .sg-row-even .sg-td              { background-color: #FFFFFF; }
     .sg-row-even .sg-td.col-fixed-5  { background: rgba(0,122,255,0.05); }
     .sg-row-even .sg-td.col-price    { background: rgba(88,86,214,0.05); }
@@ -128,13 +111,11 @@
     .sg-row-odd .sg-td.col-fixed-5   { background: rgba(0,122,255,0.07); }
     .sg-row-odd .sg-td.col-price     { background: rgba(88,86,214,0.07); }
     .sg-row-odd .sg-td.col-company   { background: rgba(52,199,89,0.07); }
-    /* 交互状态 */
     .sg-row:hover .sg-td         { background: rgba(0,122,255,0.06) !important; }
     .sg-row.row-selected .sg-td  { background: rgba(0,122,255,0.14) !important; color: #007AFF !important; }
     .sg-row.row-not-found .sg-td { color: #FF3B30 !important; background: rgba(255,59,48,0.05) !important; }
     .sg-row.row-matched .sg-td   { background: rgba(255,204,0,0.15) !important; }
 
-    /* ══ 行高滑块 ══════════════════════════════════════════ */
     input[type=range].rh-slider {
       -webkit-appearance: none; width: 80px; height: 4px;
       border-radius: 2px; background: #cbd5e1; outline: none; cursor: pointer;
@@ -144,7 +125,6 @@
       background: #3b82f6; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.2);
     }
 
-    /* ══ 关键词下拉（iOS popover 风格）══════════════════════ */
     .kw-dropdown {
       position: absolute; top: calc(100% + 6px); right: 0; z-index: 50;
       background: rgba(255,255,255,0.92);
@@ -165,12 +145,10 @@
     .kw-chip:hover  { background: rgba(0,122,255,0.1); color: #007AFF; }
     .kw-chip.active { background: #007AFF; color: white; }
 
-    /* ══ Modal 弹入动画 ══════════════════════════════════════ */
     @keyframes modal-in {
       from { opacity: 0; transform: translateY(20px) scale(0.95); }
       to   { opacity: 1; transform: translateY(0) scale(1); }
     }
-    /* .modal-overlay = always in DOM; toggled via .modal-overlay--open */
     .modal-overlay {
       position: fixed; inset: 0; z-index: 50;
       display: flex; align-items: center; justify-content: center;
@@ -178,7 +156,6 @@
       background: rgba(15, 23, 42, 0);
       backdrop-filter: blur(0px) saturate(100%);
       -webkit-backdrop-filter: blur(0px) saturate(100%);
-      /* Close: backdrop fades last (delay 0.12s) */
       transition: opacity 0.2s ease 0.12s, background 0.2s ease 0.12s,
                   backdrop-filter 0.2s ease 0.12s;
     }
@@ -187,23 +164,19 @@
       background: rgba(15, 23, 42, 0.45);
       backdrop-filter: blur(7px) saturate(160%);
       -webkit-backdrop-filter: blur(7px) saturate(160%);
-      /* Open: backdrop fades in immediately */
       transition: opacity 0.25s ease 0s, background 0.25s ease 0s,
                   backdrop-filter 0.25s ease 0s;
     }
-    /* Card: close — shrink back quickly */
     .modal-card {
       opacity: 0; transform: translateY(32px) scale(0.9);
       transition: opacity 0.18s ease 0s, transform 0.18s cubic-bezier(0.4,0,1,1) 0s;
     }
-    /* Card: open — spring pop after backdrop (80ms delay) */
     .modal-overlay--open .modal-card {
       opacity: 1; transform: translateY(0) scale(1);
       transition: opacity 0.38s cubic-bezier(0.34,1.56,0.64,1) 0.08s,
                   transform 0.38s cubic-bezier(0.34,1.56,0.64,1) 0.08s;
     }
 
-    /* ══ Tab 动效 ════════════════════════════════════════════ */
     .tab-btn {
       position: relative; padding: 8px 16px; font-size: 12px; color: #64748b;
       border-bottom: 2px solid transparent; cursor: pointer; transition: color .2s;
@@ -212,7 +185,6 @@
     .tab-btn.active { color: #2563eb; border-bottom-color: #2563eb; font-weight: 600; }
     .tab-btn:hover:not(.active) { color: #334155; }
 
-    /* ══ Toast（iOS 通知胶囊）══════════════════════════════ */
     .toast-box {
       position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
       z-index: 9999;
@@ -226,6 +198,15 @@
       animation: modal-in 0.28s cubic-bezier(0.34,1.56,0.64,1) both;
     }
 
+    /* RFQ 粘贴链接按钮：绿色调区分 OCR */
+    .btn-rfq {
+      padding: 6px 16px; font-size: 13px; font-weight: 600;
+      background: linear-gradient(135deg, #34C759, #30B350);
+      color: white; border-radius: 99px;
+      transition: all .15s; cursor: pointer; border: none; outline: none;
+    }
+    .btn-rfq:active  { transform: scale(0.95); opacity: 0.8; }
+    .btn-rfq:disabled { opacity: 0.35; cursor: not-allowed; }
   </style>
 </head>
 
@@ -248,7 +229,9 @@
 
     <div class="w-px h-5 bg-slate-200 mx-1"></div>
 
-    <button @click="startOCR(false)" :disabled="isScanning" class="btn-blue">
+    <!-- ── OCR 识别按钮（非 Seven Seas 公司时显示）── -->
+    <button x-show="company !== 'Seven Seas'"
+            @click="startOCR(false)" :disabled="isScanning" class="btn-blue">
       <span x-show="!isScanning" x-text="t('ocr_btn')"></span>
       <span x-show="isScanning" class="flex items-center gap-1">
         <svg class="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
@@ -259,7 +242,24 @@
       </span>
     </button>
 
-    <button @click="startOCR(true)" :disabled="isScanning" class="btn-slate" x-text="t('append_ocr')"></button>
+    <!-- ── 粘贴链接按钮（选择 Seven Seas 时显示）── -->
+    <button x-show="company === 'Seven Seas'"
+            @click="openPasteLinkDialog()" :disabled="pasteLinkDlg.isParsing"
+            class="btn-rfq">
+      <span x-show="!pasteLinkDlg.isParsing" x-text="t('paste_link_btn')"></span>
+      <span x-show="pasteLinkDlg.isParsing" class="flex items-center gap-1">
+        <svg class="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/>
+          <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+        </svg>
+        <span x-text="t('parsing')"></span>
+      </span>
+    </button>
+
+    <!-- ── 追加识别（非 Seven Seas 时显示）── -->
+    <button x-show="company !== 'Seven Seas'"
+            @click="startOCR(true)" :disabled="isScanning" class="btn-slate"
+            x-text="t('append_ocr')"></button>
 
     <button @click="queryPrices()" :disabled="isQuerying || !productItems.length" class="btn-blue">
       <span x-show="!isQuerying" x-text="t('query_price')"></span>
@@ -344,7 +344,6 @@
 
         <div class="w-px h-5 bg-slate-200"></div>
 
-        <!-- 关键词选择器 -->
         <div class="relative" x-show="plKeywords.length > 0">
           <button @click="plKwOpen = !plKwOpen"
                   class="btn-slate flex items-center gap-1 whitespace-nowrap">
@@ -365,7 +364,6 @@
                @click.outside="plKwOpen = false"
                class="kw-dropdown"
                style="display:none">
-
             <div class="flex items-center justify-between mb-2">
               <span class="text-xs font-semibold text-slate-500" x-text="t('kw_filter_title')"></span>
               <button @click="clearPlKw()"
@@ -373,7 +371,6 @@
                              border border-red-200 rounded-md hover:bg-red-50 transition-colors"
                       x-text="t('clear_all')"></button>
             </div>
-
             <div class="grid grid-cols-4 gap-1.5">
               <template x-for="kw in plKeywords" :key="kw">
                 <span @click="togglePlKw(kw)"
@@ -382,7 +379,6 @@
                       x-text="kw"></span>
               </template>
             </div>
-
             <div x-show="plKwSel.length > 0"
                  class="mt-2 pt-2 border-t border-slate-100 text-xs text-slate-400">
               <span x-text="t('kw_selected')"></span>
@@ -463,6 +459,79 @@
       <button @click="exportDlg.open = false"
               class="w-full mt-3 text-xs text-slate-400 hover:text-slate-600"
               x-text="t('cancel')"></button>
+    </div>
+  </div>
+
+  <!-- ═══ PASTE LINK MODAL（Seven Seas RFQ 询价）══════════ -->
+  <div :class="pasteLinkDlg.open ? 'modal-overlay modal-overlay--open' : 'modal-overlay'"
+       @keydown.escape.window="pasteLinkDlg.open = false"
+       @click.self="pasteLinkDlg.open = false">
+    <div class="modal-card bg-white/90 backdrop-blur-2xl rounded-[38px] shadow-2xl w-[540px] p-8 border border-white/40"
+         @click.stop>
+
+      <!-- 标题区 -->
+      <div class="flex items-start gap-3 mb-5">
+        <!-- 绿色图标徽章 -->
+        <div class="flex-shrink-0 w-10 h-10 rounded-2xl bg-[#34C759]/15 flex items-center justify-center">
+          <svg class="w-5 h-5 text-[#34C759]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101
+                     m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+          </svg>
+        </div>
+        <div>
+          <h3 class="text-sm font-semibold text-slate-800" x-text="t('paste_link_title')"></h3>
+          <p class="text-xs text-slate-400 mt-0.5" x-text="t('paste_link_sub')"></p>
+        </div>
+      </div>
+
+      <!-- 输入框 -->
+      <textarea
+        x-model="pasteLinkDlg.url"
+        rows="4"
+        :placeholder="t('paste_link_ph')"
+        class="w-full rounded-2xl bg-black/5 border-none px-4 py-3 text-xs font-mono
+               text-slate-700 resize-none focus:outline-none focus:ring-2 focus:ring-[#34C759]/50
+               placeholder:text-[#8E8E93] transition-all"
+        @keydown.meta.enter.prevent="submitPasteLink()"
+        @keydown.ctrl.enter.prevent="submitPasteLink()"
+      ></textarea>
+
+      <!-- 提示文字 -->
+      <p class="text-[11px] text-slate-400 mt-2 px-1">
+        支持 http/https 链接或本地 .html 文件路径 · Ctrl+Enter 快速确认
+      </p>
+
+      <!-- 按钮区 -->
+      <div class="flex justify-end gap-2 mt-5">
+        <button @click="pasteLinkDlg.open = false"
+                class="btn-ghost text-xs"
+                x-text="t('cancel')"></button>
+        <button @click="submitPasteLink()"
+                :disabled="pasteLinkDlg.isParsing || !pasteLinkDlg.url.trim()"
+                class="px-5 py-2 text-[13px] font-semibold rounded-full transition-all
+                       active:scale-95 active:opacity-75 disabled:opacity-30 disabled:cursor-not-allowed
+                       text-white"
+                :class="pasteLinkDlg.isParsing
+                          ? 'bg-slate-400'
+                          : 'bg-[#34C759] hover:bg-[#30B350]'">
+          <span x-show="!pasteLinkDlg.isParsing" class="flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2
+                       M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            <span x-text="t('confirm_btn')"></span>
+          </span>
+          <span x-show="pasteLinkDlg.isParsing" class="flex items-center gap-1.5">
+            <svg class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/>
+              <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+            </svg>
+            <span x-text="t('parsing')"></span>
+          </span>
+        </button>
+      </div>
     </div>
   </div>
 
