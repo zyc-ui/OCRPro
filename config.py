@@ -10,12 +10,29 @@ import os as _os
 
 # ── 数据库路径（打包 / 开发双模式） ──────────────────────────────────────────
 def get_db_path() -> str:
-    """返回 SQLite 数据库的绝对路径，兼容 PyInstaller onedir 打包模式。"""
+    """
+    返回 SQLite 数据库的绝对路径，兼容 PyInstaller onedir 打包模式。
+
+    路径解析优先级：
+      1. exe 同级目录下的 database_data.db
+         （便于运维人员不重新打包直接替换数据库文件）
+      2. _internal/database_data.db
+         （PyInstaller onedir 默认打包位置）
+      3. 当前工作目录的 database_data.db
+         （开发模式兜底）
+    """
     if getattr(_sys, 'frozen', False):
-        return _os.path.join(
-            _os.path.dirname(_sys.executable),
-            '_internal', 'database_data.db'
-        )
+        exe_dir = _os.path.dirname(_sys.executable)
+
+        # 优先：exe 同级（热更新场景）
+        beside_exe = _os.path.join(exe_dir, 'database_data.db')
+        if _os.path.isfile(beside_exe):
+            return beside_exe
+
+        # 其次：_internal 内（打包默认位置）
+        return _os.path.join(exe_dir, '_internal', 'database_data.db')
+
+    # 开发模式
     return 'database_data.db'
 
 

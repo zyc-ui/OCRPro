@@ -16,17 +16,48 @@ from PIL import ImageGrab
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Tesseract 路径
+# Tesseract 路径解析
+#
+# 优先级（由高到低）：
+#   1. 环境变量 TESSERACT_CMD         （完整可执行文件路径）
+#   2. 环境变量 TESSERACT_DIR         （目录，自动追加 tesseract.exe）
+#   3. 打包模式下 _internal/Tesseract  （PyInstaller onedir 内嵌路径）
+#   4. PATH 中的 tesseract             （系统已安装）
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _get_tesseract_path() -> str:
+    # 1) 直接指定可执行路径
+    cmd_env = os.environ.get("TESSERACT_CMD", "").strip()
+    if cmd_env:
+        return cmd_env
+
+    # 2) 指定目录，自动追加 tesseract.exe
+    dir_env = os.environ.get("TESSERACT_DIR", "").strip()
+    if dir_env:
+        candidate = os.path.join(dir_env, "tesseract.exe")
+        if os.path.isfile(candidate):
+            return candidate
+        # 目录存在但 exe 不在根层，尝试常见子路径
+        candidate2 = os.path.join(dir_env, "bin", "tesseract.exe")
+        if os.path.isfile(candidate2):
+            return candidate2
+        # 目录指定了但找不到 exe，仍返回拼接路径（check 时会报错，方便定位）
+        return candidate
+
+    # 3) 打包模式：在 _internal/Tesseract 内查找
     if getattr(sys, "frozen", False):
         base = os.path.join(os.path.dirname(sys.executable), "_internal")
-        path = os.path.join(base, "Tesseract", "tesseract.exe")
-        if os.path.exists(path):
-            return path
-        return os.path.join(os.path.dirname(sys.executable), "Tesseract", "tesseract.exe")
-    return r"E:\Tesseract\tesseract.exe"
+        packed = os.path.join(base, "Tesseract", "tesseract.exe")
+        if os.path.isfile(packed):
+            return packed
+        # 兼容旧版打包（直接在 exe 同级）
+        legacy = os.path.join(os.path.dirname(sys.executable), "Tesseract", "tesseract.exe")
+        if os.path.isfile(legacy):
+            return legacy
+        return packed   # 不存在时仍返回标准路径，check_tesseract() 会给出清晰报错
+
+    # 4) 开发模式：依赖 PATH（系统已安装 Tesseract）
+    return "tesseract"
 
 
 TESSERACT_PATH = _get_tesseract_path()
@@ -208,11 +239,18 @@ class OCREngine:
 
     def check_tesseract(self) -> bool:
         try:
-            if not os.path.exists(TESSERACT_PATH):
+            path = pytesseract.pytesseract.tesseract_cmd
+            # "tesseract" 代表依赖 PATH，不检查文件存在性，直接调版本
+            if path != "tesseract" and not os.path.isfile(path):
+                logging.error(
+                    f"[OCR] Tesseract 可执行文件不存在: {path}\n"
+                    "      请设置环境变量 TESSERACT_CMD 或 TESSERACT_DIR 指向正确路径。"
+                )
                 return False
             pytesseract.get_tesseract_version()
             return True
-        except Exception:
+        except Exception as e:
+            logging.error(f"[OCR] Tesseract 检查失败: {e}")
             return False
 
     def start_selection(self, on_result: Callable[[List[Tuple]], None]) -> bool:
@@ -221,7 +259,7 @@ class OCREngine:
         返回 False 表示 Tesseract 未找到。
         """
         if not self.check_tesseract():
-            logging.error(f"[OCR] Tesseract 未找到: {TESSERACT_PATH}")
+            logging.error(f"[OCR] Tesseract 路径: {TESSERACT_PATH}")
             return False
         threading.Thread(target=self._run_ui, args=(on_result,), daemon=True).start()
         return True
