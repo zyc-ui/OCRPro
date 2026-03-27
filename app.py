@@ -82,7 +82,7 @@ def main() -> None:
 
     try:
         # debug=False：默认不打开 DevTools；传 --debug 时才开启
-        webview.start(debug=False, http_server=False, gui=gui)
+        webview.start(debug=False, http_server=True, gui=gui)
     except Exception:
         logging.exception("WebView 启动失败（gui=%s）", gui or "auto")
         raise
