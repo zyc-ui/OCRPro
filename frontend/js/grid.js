@@ -32,6 +32,7 @@ let priceListGridApi = null;
 
 // ── 价目表搜索状态 ────────────────────────────────────────
 let _plData = [], _plCols = [], _matchIdx = [];
+let _currentMatchPos = 0;   // Fix5: 当前翻页位置
 
 
 // ══════════════════════════════════════════════════════════
@@ -57,9 +58,9 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
   let _matchSet    = new Set();
   let _selIdx      = -1;
   let _rowH        = 72;
-  let _headerNames = {};   // col key → display label（语言切换时更新）
+  let _headerNames = {};
 
-  // ── 列拖拽状态（每实例独立，pointer-events 实现）──
+  // ── 列拖拽状态 ──
   let _dragSrcIdx  = null;
   let _dragOverIdx = null;
   let _dragGhost   = null;
@@ -84,7 +85,7 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
     table.style.width = total() + 'px';
   }
 
-  // ── 表头（列宽 handle + pointer 拖拽排序）──
+  // ── 表头 ──
   function renderHeader() {
     thead.innerHTML = '';
     if (!_cols.length) return;
@@ -104,7 +105,6 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
       span.textContent = _headerNames[col] || col;
       th.appendChild(span);
 
-      // ── 列宽调整 handle（右边缘 resize）──
       const resizeHandle = document.createElement('div');
       resizeHandle.className = 'sg-resize-handle';
       resizeHandle.addEventListener('mousedown', e => {
@@ -129,7 +129,6 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
       });
       th.appendChild(resizeHandle);
 
-      // ── 列排序：pointer events（可见 ghost + 兄弟列滑动）──
       th.addEventListener('mousedown', e => {
         if (e.target.classList.contains('sg-resize-handle')) return;
         if (e.button !== 0) return;
@@ -141,7 +140,6 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
         const thRect = th.getBoundingClientRect();
         const thW    = thRect.width;
 
-        // 创建 ghost：克隆 th，悬浮跟随光标
         const ghost = th.cloneNode(true);
         ghost.querySelector('.sg-resize-handle')?.remove();
         ghost.style.cssText = [
@@ -156,15 +154,12 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
         document.body.appendChild(ghost);
         _dragGhost = ghost;
 
-        // 动画：卡起来
         requestAnimationFrame(() => {
           ghost.style.transform  = 'rotate(-2deg) scale(1.07)';
           ghost.style.boxShadow  = '0 20px 48px rgba(0,0,0,.38)';
         });
 
-        // 源列淡出
         th.classList.add('sg-th-drag-source');
-        // 给所有 th 加平滑 transform transition
         const allThs = Array.from(thead.querySelectorAll('th.sg-th'));
         allThs.forEach(t => { t.style.transition = 'transform 0.18s cubic-bezier(0.4,0,0.2,1)'; });
 
@@ -172,26 +167,20 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
         document.body.style.userSelect = 'none';
 
         const onMove = ev => {
-          // ghost 跟随光标水平移动，垂直固定在表头
           ghost.style.left = (ev.clientX - thW / 2) + 'px';
-
-          // 临时隐藏 ghost，找光标下真实元素
           ghost.style.visibility = 'hidden';
           const under = document.elementFromPoint(ev.clientX, ev.clientY);
           ghost.style.visibility = '';
-
           const underTh = under?.closest('th.sg-th');
           const newOver = underTh ? allThs.indexOf(underTh) : _dragOverIdx;
           if (newOver < 0 || newOver === _dragOverIdx) return;
           _dragOverIdx = newOver;
-
-          // 计算每列应该位移多少：在 src 和 target 之间的列反向退开
           const srcW = thW;
           allThs.forEach((t, idx) => {
-            if (idx === ci) return; // 源列本身不位移（只淡出）
+            if (idx === ci) return;
             let shift = 0;
-            if (ci < newOver && idx > ci && idx <= newOver) shift = -srcW; // 向右拖：中间列左移
-            if (ci > newOver && idx >= newOver && idx < ci)  shift =  srcW; // 向左拖：中间列右移
+            if (ci < newOver && idx > ci && idx <= newOver) shift = -srcW;
+            if (ci > newOver && idx >= newOver && idx < ci)  shift =  srcW;
             t.style.transform = shift ? `translateX(${shift}px)` : '';
           });
         };
@@ -199,14 +188,11 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
         const onUp = () => {
           document.removeEventListener('mousemove', onMove);
           document.removeEventListener('mouseup',   onUp);
-
           ghost.remove();
           _dragGhost = null;
-
           th.classList.remove('sg-th-drag-source');
           allThs.forEach(t => { t.style.transform = ''; t.style.transition = ''; });
           document.body.style.cursor = document.body.style.userSelect = '';
-
           if (_dragOverIdx !== null && _dragOverIdx !== _dragSrcIdx) {
             const [moved] = _cols.splice(_dragSrcIdx, 1);
             _cols.splice(_dragOverIdx, 0, moved);
@@ -329,16 +315,23 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
       _matchSet = new Set(indices);
       scheduleRender();
     },
+
+    // ── Fix1: 精确定位，计入 thead 固定高度，行居中显示 ──
     scrollToIndex(idx) {
       if (idx < 0 || idx >= _rows.length) return;
-      el.scrollTo({ top: Math.max(0, idx * _rowH - (el.clientHeight || 500) / 2), behavior: 'smooth' });
+      // 等一帧确保渲染完成后再滚动
+      requestAnimationFrame(() => {
+        const theadH = thead ? thead.offsetHeight : 0;
+        const top    = theadH + idx * _rowH + _rowH / 2 - (el.clientHeight || 500) / 2;
+        el.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+      });
     },
+
     ensureIndexVisible(idx) { this.scrollToIndex(idx); },
     redrawRows()            { scheduleRender(); },
     sizeColumnsToFit()      { /* no-op */ },
     getRows()               { return _rows; },
     getCols()               { return _cols;  },
-    /** 更新表头显示文字（不改变内部 key）, map: {colKey: displayLabel} */
     setHeaderNames(map) {
       _headerNames = map || {};
       const ths = thead.querySelectorAll('th.sg-th .sg-th-text');
@@ -441,6 +434,7 @@ const SCORE_W = { '描述':3, '详情':3, '报价':3, '备注1':2, '备注2':2 }
 function searchPriceList(keywords) {
   if (!priceListGridApi || !_plData.length) return 0;
   _matchIdx = [];
+  _currentMatchPos = 0;   // Fix5: 重置翻页位置
   if (!keywords || !keywords.length) { priceListGridApi.setMatchIndices([]); return 0; }
   const reList = keywords.map(kw =>
     new RegExp(kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'));
@@ -459,13 +453,57 @@ function searchPriceList(keywords) {
   return _matchIdx.length;
 }
 
+// ── Fix2: 精确定位 — 优先 IMPA/U8 精确匹配，再按代码列包含匹配 ──
 function locatePriceList(keyword) {
   if (!priceListGridApi || !_plData.length || !keyword) return;
-  const kw  = keyword.toUpperCase();
-  const idx = _plData.findIndex(row =>
-    Object.values(row).some(v => v && v.toString().toUpperCase().includes(kw)));
-  if (idx >= 0) { priceListGridApi.setMatchIndices([idx]); priceListGridApi.scrollToIndex(idx); }
+  const kw = keyword.trim().toUpperCase();
+
+  // 第一优先：IMPA 或 U8 精确等值匹配
+  let idx = _plData.findIndex(row => {
+    const impa = (row['IMPA代码'] || '').toString().trim().toUpperCase();
+    const u8   = (row['U8代码']   || '').toString().trim().toUpperCase();
+    return impa === kw || u8 === kw;
+  });
+
+  // 第二优先：代码列包含匹配（不扫描全部列）
+  if (idx < 0) {
+    idx = _plData.findIndex(row => {
+      const impa = (row['IMPA代码'] || '').toString().toUpperCase();
+      const u8   = (row['U8代码']   || '').toString().toUpperCase();
+      return impa.includes(kw) || u8.includes(kw);
+    });
+  }
+
+  if (idx >= 0) {
+    _currentMatchPos = 0;
+    priceListGridApi.setMatchIndices([idx]);
+    priceListGridApi.scrollToIndex(idx);
+  }
 }
+
+// ── Fix5: 上下翻页导航 ──────────────────────────────────
+/**
+ * 跳到下一个匹配行，返回新位置（0-based），无匹配时返回 -1。
+ */
+function nextPriceMatch() {
+  if (!priceListGridApi || !_matchIdx.length) return -1;
+  _currentMatchPos = (_currentMatchPos + 1) % _matchIdx.length;
+  priceListGridApi.scrollToIndex(_matchIdx[_currentMatchPos]);
+  return _currentMatchPos;
+}
+
+/**
+ * 跳到上一个匹配行，返回新位置（0-based），无匹配时返回 -1。
+ */
+function prevPriceMatch() {
+  if (!priceListGridApi || !_matchIdx.length) return -1;
+  _currentMatchPos = (_currentMatchPos - 1 + _matchIdx.length) % _matchIdx.length;
+  priceListGridApi.scrollToIndex(_matchIdx[_currentMatchPos]);
+  return _currentMatchPos;
+}
+
+/** 当前匹配总数 */
+function getPriceMatchCount() { return _matchIdx.length; }
 
 function setPriceListRowHeight(px) {
   if (priceListGridApi) priceListGridApi.setRowHeight(px);

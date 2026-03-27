@@ -134,5 +134,5 @@ FL_COL_WIDTHS: dict[str, int] = {
     "L GROUP 3": 90,
     "SINWA SGP": 110,    "Seven Seas": 110,
     "Wrist Far East": 110, "Anchor Marine": 110, "RMS Marine": 110,
-    "Fuji Trading": 110, "Con Lash": 110,
+    "Fuji Trading": 110, "Con Lash": 110, "IMAGE_DATA": 120,
 }

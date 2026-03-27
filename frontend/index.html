@@ -207,6 +207,29 @@
     }
     .btn-rfq:active  { transform: scale(0.95); opacity: 0.8; }
     .btn-rfq:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* Fix4: Finish 按钮 — 橙色，与 Seven Seas 关联 */
+    .btn-finish {
+      padding: 6px 18px; font-size: 13px; font-weight: 600;
+      background: linear-gradient(135deg, #FF9500, #FF6B00);
+      color: white; border-radius: 99px;
+      transition: all .15s; cursor: pointer; border: none; outline: none;
+    }
+    .btn-finish:active   { transform: scale(0.95); opacity: 0.8; }
+    .btn-finish:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* Fix5: 上下翻页按钮 */
+    .btn-nav {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 8px;
+      font-size: 14px; font-weight: 600; line-height: 1;
+      background: rgba(0,0,0,0.06); color: #3C3C43;
+      border: none; cursor: pointer; transition: background .12s, transform .1s;
+      user-select: none;
+    }
+    .btn-nav:hover:not(:disabled)  { background: rgba(0,122,255,0.12); color: #007AFF; }
+    .btn-nav:active:not(:disabled) { transform: scale(0.9); }
+    .btn-nav:disabled { opacity: 0.3; cursor: not-allowed; }
   </style>
 </head>
 
@@ -229,7 +252,7 @@
 
     <div class="w-px h-5 bg-slate-200 mx-1"></div>
 
-    <!-- ── OCR 识别按钮（非 Seven Seas 公司时显示）── -->
+    <!-- ── OCR 识别按钮（非 Seven Seas 时显示）── -->
     <button x-show="company !== 'Seven Seas'"
             @click="startOCR(false)" :disabled="isScanning" class="btn-blue">
       <span x-show="!isScanning" x-text="t('ocr_btn')"></span>
@@ -242,7 +265,7 @@
       </span>
     </button>
 
-    <!-- ── 粘贴链接按钮（选择 Seven Seas 时显示）── -->
+    <!-- ── 粘贴链接按钮（Seven Seas 时显示）── -->
     <button x-show="company === 'Seven Seas'"
             @click="openPasteLinkDialog()" :disabled="pasteLinkDlg.isParsing"
             class="btn-rfq">
@@ -266,7 +289,18 @@
       <span x-show="isQuerying"  x-text="t('querying')"></span>
     </button>
 
-    <button @click="openExportDialog()" :disabled="!queryResults.length" class="btn-slate" x-text="t('copy_table')"></button>
+    <!-- ── Fix4: 复制表格（非 Seven Seas）/ Finish（Seven Seas）── -->
+    <button x-show="company !== 'Seven Seas'"
+            @click="openExportDialog()" :disabled="!queryResults.length"
+            class="btn-slate"
+            x-text="t('copy_table')"></button>
+
+    <button x-show="company === 'Seven Seas'"
+            @click="finishRFQ()"
+            :disabled="!queryResults.length || !_rfqUrl"
+            class="btn-finish"
+            x-text="t('finish_btn')"></button>
+
     <button @click="clearAll()" class="btn-ghost text-red-400 hover:text-red-500 hover:bg-red-50" x-text="t('clear')"></button>
 
     <!-- 行高滑块 -->
@@ -342,6 +376,19 @@
         <button @click="onPriceSearch()"    class="btn-blue"       x-text="t('search_btn')"></button>
         <button @click="clearPriceSearch()" class="btn-ghost text-xs" x-text="t('clear_x')"></button>
 
+        <!-- Fix5: 上下翻页按钮 ──────────────── -->
+        <div class="flex items-center gap-1 ml-1" x-show="_priceMatchTotal > 1">
+          <button @click="navigatePrev()"
+                  :disabled="!_priceMatchTotal"
+                  class="btn-nav"
+                  title="上一个匹配">&#8593;</button>
+          <button @click="navigateNext()"
+                  :disabled="!_priceMatchTotal"
+                  class="btn-nav"
+                  title="下一个匹配">&#8595;</button>
+        </div>
+        <!-- ──────────────────────────────────── -->
+
         <div class="w-px h-5 bg-slate-200"></div>
 
         <div class="relative" x-show="plKeywords.length > 0">
@@ -389,7 +436,7 @@
           </div>
         </div>
 
-        <span class="text-xs text-slate-400 ml-1 min-w-28 whitespace-nowrap" x-text="priceStats"></span>
+        <span class="text-xs text-slate-400 ml-1 min-w-36 whitespace-nowrap" x-text="priceStats"></span>
       </div>
 
       <div id="priceListGrid"></div>
@@ -469,9 +516,7 @@
     <div class="modal-card bg-white/90 backdrop-blur-2xl rounded-[38px] shadow-2xl w-[540px] p-8 border border-white/40"
          @click.stop>
 
-      <!-- 标题区 -->
       <div class="flex items-start gap-3 mb-5">
-        <!-- 绿色图标徽章 -->
         <div class="flex-shrink-0 w-10 h-10 rounded-2xl bg-[#34C759]/15 flex items-center justify-center">
           <svg class="w-5 h-5 text-[#34C759]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -485,7 +530,6 @@
         </div>
       </div>
 
-      <!-- 输入框 -->
       <textarea
         x-model="pasteLinkDlg.url"
         rows="4"
@@ -497,12 +541,10 @@
         @keydown.ctrl.enter.prevent="submitPasteLink()"
       ></textarea>
 
-      <!-- 提示文字 -->
       <p class="text-[11px] text-slate-400 mt-2 px-1">
         支持 http/https 链接或本地 .html 文件路径 · Ctrl+Enter 快速确认
       </p>
 
-      <!-- 按钮区 -->
       <div class="flex justify-end gap-2 mt-5">
         <button @click="pasteLinkDlg.open = false"
                 class="btn-ghost text-xs"

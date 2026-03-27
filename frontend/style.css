@@ -97,3 +97,13 @@
 .ag-theme-alpine ::-webkit-scrollbar-track { background: #f1f5f9; }
 .ag-theme-alpine ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
 .ag-theme-alpine ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* 图片列 */
+.ag-theme-alpine .ag-cell.col-image {
+  padding: 4px;
+  background-color: #fafafa;
+}
+.ag-theme-alpine .ag-header-cell.col-image-hdr {
+  background-color: #475569;
+  color: #f1f5f9;
+}

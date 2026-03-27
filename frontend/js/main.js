@@ -36,6 +36,7 @@ const _I18N = {
     query_price:     '查询价格',
     querying:        '查询中…',
     copy_table:      '复制表格',
+    finish_btn:      'Finish',
     clear:           '清空',
     row_height:      '行高',
     item_code_label: '商品代码',
@@ -106,6 +107,12 @@ const _I18N = {
     parse_err:        '解析失败：',
     rfq_no_data:      '未能解析到有效询价数据，请检查链接是否正确',
     rfq_toast:        '已导入 {n} 条询价，正在匹配…',
+    // ── Fix4 Finish ──
+    finish_no_url:    '请先粘贴并解析询价链接',
+    finish_success:   '✅ 价格已填入，正在用浏览器打开…',
+    finish_fail:      '填写失败：',
+    // ── Fix5 导航 ──
+    match_pos:        '{pos}/{total}',
   },
   en: {
     app_name:        'Seastar',
@@ -116,6 +123,7 @@ const _I18N = {
     query_price:     'Query Price',
     querying:        'Querying…',
     copy_table:      'Copy Table',
+    finish_btn:      'Finish',
     clear:           'Clear',
     row_height:      'Row H',
     item_code_label: 'Item Code',
@@ -186,6 +194,12 @@ const _I18N = {
     parse_err:        'Parse error: ',
     rfq_no_data:      'No valid RFQ data found, please check the link',
     rfq_toast:        'Imported {n} RFQ items, matching…',
+    // ── Fix4 Finish ──
+    finish_no_url:    'Please paste and parse the RFQ link first',
+    finish_success:   '✅ Prices filled, opening browser…',
+    finish_fail:      'Fill failed: ',
+    // ── Fix5 navigation ──
+    match_pos:        '{pos}/{total}',
   },
 };
 
@@ -225,9 +239,13 @@ function App() {
     plKwSel:     [],
     plKwOpen:    false,
 
-    // ── RFQ 列名重映射（Seven Seas 询价专用）──
-    // 格式：{ 内部列名: RFQ 显示列名 }，null 表示未激活
-    _rfqHeaderMap: null,
+    // ── RFQ 相关 ──
+    _rfqHeaderMap: null,   // 列头重映射
+    _rfqUrl:       '',     // Fix4: 记录最近解析的 RFQ 链接
+
+    // ── Fix5: 搜索结果导航 ──
+    _priceMatchTotal: 0,
+    _priceMatchPos:   0,
 
     // ── Toast ──
     toast: { show: false, msg: '', _timer: null },
@@ -320,19 +338,16 @@ function App() {
     },
 
     // ══════════════════════════════════════════════
-    // 列标题语言刷新（合并 RFQ 重映射）
+    // 列标题语言刷新
     // ══════════════════════════════════════════════
     refreshGridHeaders() {
-      const langMap = this.lang === 'en' ? _COL_HEADERS_EN : {};
-      // RFQ 映射优先级高于语言映射
+      const langMap  = this.lang === 'en' ? _COL_HEADERS_EN : {};
       const queryMap = { ...langMap, ...(this._rfqHeaderMap || {}) };
       if (queryGridApi)     queryGridApi.setHeaderNames(queryMap);
       if (priceListGridApi) priceListGridApi.setHeaderNames(langMap);
     },
 
-    /** 返回列的当前语言显示名（供复选框标签使用）*/
     colLabel(col) {
-      // RFQ 模式下优先显示 RFQ 列名
       if (this._rfqHeaderMap?.[col]) return this._rfqHeaderMap[col];
       return this.lang === 'en' ? (_COL_HEADERS_EN[col] || col) : col;
     },
@@ -347,9 +362,9 @@ function App() {
                     'Anchor Marine','RMS Marine','Fuji Trading','Con Lash'];
       this.companyColLabel = LIST.includes(this.company) ? this.company : 'High / Medium Price';
       this._plLoadedFor = null;
-      // 切换公司时重置 RFQ 列名映射
       if (this.company !== 'Seven Seas' && this._rfqHeaderMap) {
         this._rfqHeaderMap = null;
+        this._rfqUrl       = '';
         if (queryGridApi) queryGridApi.setHeaderNames(
           this.lang === 'en' ? _COL_HEADERS_EN : {}
         );
@@ -435,11 +450,9 @@ function App() {
           return;
         }
 
-        // 建立列索引快查表
         const ci = {};
         d.cols.forEach((c, i) => { ci[c] = i; });
 
-        // 映射到 productItems 格式
         this.productItems = d.rows.map(row => ({
           item_no: row[ci['#']]                ?? '',
           code:    row[ci['SevenSeas Code']]   ?? '',
@@ -451,13 +464,14 @@ function App() {
         this.codesText = this.productItems
           .map(i => i.desc ? `${i.code}: ${i.desc}` : i.code).join('  |  ');
 
+        // Fix4: 记录 RFQ URL 供 Finish 使用
+        this._rfqUrl = url;
+
         this.pasteLinkDlg.open = false;
         this.showToast(this.tf('rfq_toast', { n: this.productItems.length }), 4000);
 
-        // 自动触发价格查询（描述优先匹配）
         await this.queryPrices();
 
-        // 查询完成后将列头重命名为 RFQ 原始表头
         this._rfqHeaderMap = {
           '商品代码': 'SevenSeas Code',
           '客户描述': 'Item Description',
@@ -470,6 +484,32 @@ function App() {
         alert(this.t('parse_err') + String(e));
       } finally {
         this.pasteLinkDlg.isParsing = false;
+      }
+    },
+
+    // ══════════════════════════════════════════════
+    // Fix4: Finish 按钮 — 将价格填入 RFQ 表格并在浏览器打开
+    // ══════════════════════════════════════════════
+    async finishRFQ() {
+      if (!this.queryResults.length) { alert(this.t('no_items_alert')); return; }
+      if (!this._rfqUrl)             { alert(this.t('finish_no_url')); return; }
+
+      // 提取当前公司价格列（Seven Seas 时 key 为 "Seven Seas"）
+      const priceKey = this.company === 'Seven Seas'
+        ? 'Seven Seas'
+        : (this._lastQueryAllCols.find(c => c === 'High Price') ? 'High Price' : 'Medium Price');
+
+      const prices = this.queryResults.map(row => row[priceKey] || '');
+
+      try {
+        const r = await window.pywebview.api.fill_rfq_prices(this._rfqUrl, prices);
+        if (r.ok) {
+          this.showToast(this.t('finish_success'), 4000);
+        } else {
+          alert(this.t('finish_fail') + r.error);
+        }
+      } catch (e) {
+        alert(this.t('finish_fail') + String(e));
       }
     },
 
@@ -504,7 +544,7 @@ function App() {
     },
 
     // ══════════════════════════════════════════════
-    // 列显示切换（复选框）
+    // 列显示切换
     // ══════════════════════════════════════════════
     toggleCol(col, visible) {
       this.colVisibility[col] = visible;
@@ -574,7 +614,9 @@ function App() {
         updatePriceListGrid(d.cols, d.rows, this.colWidths);
         if (priceListGridApi) priceListGridApi.setRowHeight(this.rowHeight);
         this._plLoadedFor = key;
-        this.priceStats = d.rows.length ? this.tf('total', { n: d.rows.length }) : '';
+        this.priceStats   = d.rows.length ? this.tf('total', { n: d.rows.length }) : '';
+        this._priceMatchTotal = 0;
+        this._priceMatchPos   = 0;
       } catch (e) {
         console.error('[PriceList] 加载失败:', e);
         this.priceStats = this.t('load_fail') + String(e);
@@ -591,7 +633,10 @@ function App() {
       const kwKws = this.plKwSel.map(k => k.toUpperCase());
       const all   = [...new Set([...barKws, ...kwKws])];
       const n     = searchPriceList(all);
-      if (n)             this.priceStats = this.tf('matched', { n });
+      // Fix5: 记录总匹配数并重置位置
+      this._priceMatchTotal = n;
+      this._priceMatchPos   = 0;
+      if (n)              this.priceStats = this.tf('matched', { n }) + (n > 1 ? `  (1/${n})` : '');
       else if (all.length) this.priceStats = this.t('no_match');
       else if (this._plLoadedFor != null) this.priceStats = this.tf('total', { n: _plData.length });
       else               this.priceStats = '';
@@ -604,6 +649,26 @@ function App() {
     },
     clearPlKw() { this.plKwSel = []; this._doSearch(); },
     isKwSelected(kw) { return this.plKwSel.includes(kw); },
+
+    // ── Fix5: 上下翻页导航 ─────────────────────────────
+    navigateNext() {
+      if (!this._priceMatchTotal) return;
+      const pos = nextPriceMatch();
+      if (pos >= 0) {
+        this._priceMatchPos = pos;
+        this.priceStats = this.tf('matched', { n: this._priceMatchTotal })
+          + `  (${pos + 1}/${this._priceMatchTotal})`;
+      }
+    },
+    navigatePrev() {
+      if (!this._priceMatchTotal) return;
+      const pos = prevPriceMatch();
+      if (pos >= 0) {
+        this._priceMatchPos = pos;
+        this.priceStats = this.tf('matched', { n: this._priceMatchTotal })
+          + `  (${pos + 1}/${this._priceMatchTotal})`;
+      }
+    },
 
     // ══════════════════════════════════════════════
     // 查询表双击 → 价目表
@@ -628,7 +693,9 @@ function App() {
         await this._applyPriceListRow(rowIdx, rowData, sel);
         this.activeTab = 'query';
       };
-      const kw = (rowData['U8代码'] || rowData['商品代码'] || '').replace('未找到','').trim();
+      // Fix2: 精确定位到 IMPA/U8 对应行
+      const kw = (rowData['IMPA代码'] || rowData['U8代码'] || rowData['商品代码'] || '')
+                   .replace('未找到', '').trim();
       if (kw) setTimeout(() => locatePriceList(kw), 150);
     },
 
@@ -652,7 +719,6 @@ function App() {
         this.queryResults[rowIdx] = res;
         updateQueryGrid(this.queryResults, this._visibleQueryCols(
           this._lastQueryAllCols.length ? this._lastQueryAllCols : Object.keys(res)));
-        // 回填后重新应用 RFQ 列头（如果激活）
         if (queryGridApi && this._rfqHeaderMap) {
           queryGridApi.setHeaderNames(this._rfqHeaderMap);
         }
@@ -713,7 +779,6 @@ function App() {
       }
     },
     _buildExportData() {
-      // 导出时优先使用 RFQ 列名（如果激活），否则按 colVisibility 过滤
       const visCols = Object.entries(this.colVisibility).filter(([,v]) => v).map(([k]) => k);
       const rfqMap  = this._rfqHeaderMap || {};
       const TH = 'border:1px solid #666;padding:6px 10px;background:#d0d7e3;font-weight:bold;font-family:Arial,sans-serif;font-size:13px;white-space:nowrap;';
@@ -738,8 +803,10 @@ function App() {
       this.company = ''; this.companyColLabel = '';
       this.codesText = this.t('no_item_code');
       this.selectedRowIdx = -1; this._lastQueryAllCols = [];
-      // 重置 RFQ 状态
-      this._rfqHeaderMap = null;
+      this._rfqHeaderMap   = null;
+      this._rfqUrl         = '';   // Fix4: 清空 RFQ URL
+      this._priceMatchTotal = 0;
+      this._priceMatchPos   = 0;
       if (queryGridApi) {
         queryGridApi.setGridOption('rowData', []);
         queryGridApi.setHeaderNames({});

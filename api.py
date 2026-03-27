@@ -81,7 +81,6 @@ class API:
     # ── 内部辅助 ────────────────────────────────────────────────────────────
 
     def _ensure_pl_cache(self, company_name: str):
-        """首次查询时若缓存为空，从数据库加载价目表。"""
         if self._pl_rows_cache:
             return
         logging.info("[API] 价目表缓存为空，从数据库加载…")
@@ -106,14 +105,9 @@ class API:
             return None
 
     def _match_one(self, item_no, code, desc, qty, unit, col_idx, find_best_matches):
-        """
-        单条匹配核心：描述优先，代码兜底。
-        返回 (matched_row_dict | None, match_method_str)
-        """
         matched_row  = None
         match_method = ""
 
-        # ── Step 1: 描述相似度匹配（优先） ──────────────────────────────────
         if desc and find_best_matches and self._pl_rows_cache:
             try:
                 sim_results = find_best_matches(
@@ -143,7 +137,6 @@ class API:
             except Exception as e:
                 logging.warning(f"[API] 相似度匹配失败: {e}")
 
-        # ── Step 2: 代码精确匹配（兜底） ────────────────────────────────────
         if matched_row is None and code:
             try:
                 r = query_product(
@@ -162,13 +155,14 @@ class API:
 
         return matched_row, match_method
 
-    # ── 价格查询 ────────────────────────────────────────────────────────────
+    # ── 价格查询（Fix3：已移除"匹配方式"列）────────────────────────────────
 
     def query_prices(self, items: list, company_name: str) -> dict:
         """批量查询，返回 {cols, rows}，描述优先匹配。"""
         logging.info(f"[API] query_prices: {len(items)} 条, 公司={company_name!r}")
 
-        fixed_cols = ["Item NO.", "商品代码", "客户描述", "数量", "UOM", "匹配方式"]
+        # Fix3: 去掉 "匹配方式"
+        fixed_cols = ["Item NO.", "商品代码", "客户描述", "数量", "UOM"]
         info_cols  = list(FL_DISPLAY[:PRICE_COL_START_IDX])
         col_idx    = get_company_col_idx(company_name)
         price_cols = [FL_DISPLAY[col_idx]] if col_idx is not None else [FL_DISPLAY[23], FL_DISPLAY[24]]
@@ -185,7 +179,7 @@ class API:
             qty     = item.get("qty",     "")
             unit    = item.get("unit",    "")
 
-            matched_row, match_method = self._match_one(
+            matched_row, _ = self._match_one(
                 item_no, code, desc, qty, unit, col_idx, find_best_matches
             )
 
@@ -196,7 +190,6 @@ class API:
                 elif col == "客户描述": row.append(desc)
                 elif col == "数量":     row.append(qty)
                 elif col == "UOM":      row.append(unit)
-                elif col == "匹配方式": row.append(match_method)
                 elif matched_row:       row.append(str(matched_row.get(col, "") or ""))
                 else:                   row.append("")
             rows.append(row)
@@ -204,7 +197,7 @@ class API:
         logging.info(f"[API] 虚拟表: {len(rows)} 行 × {len(all_cols)} 列")
         return {"cols": all_cols, "rows": rows}
 
-    # ── 单条重新匹配（描述优先，供编辑弹窗"重新匹配"使用） ─────────────────
+    # ── 单条重新匹配 ─────────────────────────────────────────────────────────
 
     def query_single_desc_first(
         self,
@@ -215,7 +208,6 @@ class API:
         unit:    str = "",
         company: str = "",
     ) -> dict:
-        """描述优先的单条匹配，返回 FL_DISPLAY 所有字段的 dict。"""
         col_idx = get_company_col_idx(company)
         self._ensure_pl_cache(company)
         find_best_matches = self._get_matcher()
@@ -239,7 +231,7 @@ class API:
         result["匹配方式"] = ""
         return result
 
-    # ── 旧接口兼容（价目表双击回填用，代码精确匹配） ────────────────────────
+    # ── 旧接口兼容 ───────────────────────────────────────────────────────────
 
     def query_single(self, code="", desc="", qty="", item_no="", unit="", company="") -> dict:
         return query_product(
@@ -254,11 +246,6 @@ class API:
     # ── RFQ 询价解析 ────────────────────────────────────────────────────────
 
     def parse_rfq(self, url: str) -> dict:
-        """
-        解析 SevenSeas 询价链接（URL 或本地 HTML 文件路径）。
-        成功返回 {"cols": [...], "rows": [[...], ...]}
-        失败返回 {"error": "错误描述", "cols": [], "rows": []}
-        """
         try:
             from Rfq_quotation_tool import parse_rfq_url
             result = parse_rfq_url(url.strip())
@@ -271,6 +258,82 @@ class API:
         except Exception as e:
             logging.error(f"[API] parse_rfq 失败: {e}")
             return {"error": str(e), "cols": [], "rows": []}
+
+    # ── Fix4: 将查询价格填入 RFQ 表格并在浏览器中打开 ────────────────────────
+
+    def fill_rfq_prices(self, url: str, prices: list) -> dict:
+        """
+        将查询到的价格按顺序写入 RFQ 表格的 Unit Price 列，
+        保存为本地临时 HTML 后用默认浏览器打开。
+
+        参数：
+            url    : 原始 RFQ 链接或本地 HTML 文件路径
+            prices : 与询价行顺序对应的价格列表（字符串，可含 $ 前缀）
+
+        返回：
+            {"ok": True/False, "path": "...", "error": "..."}
+        """
+        try:
+            import os
+            import tempfile
+            import webbrowser
+            from bs4 import NavigableString
+            from Rfq_quotation_tool import load_html, find_rfq_table
+
+            logging.info(f"[API] fill_rfq_prices: url={url!r}, {len(prices)} 条价格")
+
+            soup = load_html(url.strip())
+            table, raw_headers, data_rows = find_rfq_table(soup)
+            if table is None:
+                return {"ok": False, "path": "", "error": "未找到询价表格，请确认链接正确"}
+
+            # 找 Unit Price 列索引（不区分大小写）
+            unit_price_idx = next(
+                (i for i, h in enumerate(raw_headers)
+                 if 'unit' in h.lower() and 'price' in h.lower()),
+                None
+            )
+            if unit_price_idx is None:
+                # 退而求其次：找单独的 price 列
+                unit_price_idx = next(
+                    (i for i, h in enumerate(raw_headers) if 'price' in h.lower()),
+                    None
+                )
+            if unit_price_idx is None:
+                return {"ok": False, "path": "", "error": "表格中未找到 Unit Price 列"}
+
+            # 过滤有效数据行
+            valid_rows = [tr for tr in data_rows if tr.find_all(['td', 'th'])]
+            logging.info(f"[API] fill_rfq_prices: 表格有效行={len(valid_rows)}, 价格数={len(prices)}")
+
+            for i, tr in enumerate(valid_rows):
+                if i >= len(prices):
+                    break
+                price_val = str(prices[i]).replace('$', '').strip()
+                if not price_val:
+                    continue
+                cells = tr.find_all(['td', 'th'])
+                if unit_price_idx < len(cells):
+                    cell = cells[unit_price_idx]
+                    cell.clear()
+                    cell.append(NavigableString(price_val))
+
+            # 保存到临时文件
+            temp_path = os.path.join(tempfile.gettempdir(), 'rfq_filled.html')
+            with open(temp_path, 'w', encoding='utf-8') as f:
+                f.write(str(soup))
+
+            # 用默认浏览器打开
+            file_url = 'file:///' + temp_path.replace('\\', '/')
+            webbrowser.open(file_url)
+            logging.info(f"[API] fill_rfq_prices 完成，已保存至 {temp_path}")
+            return {"ok": True, "path": temp_path, "error": ""}
+
+        except ImportError as e:
+            return {"ok": False, "path": "", "error": f"缺少依赖: {e}"}
+        except Exception as e:
+            logging.error(f"[API] fill_rfq_prices 失败: {e}")
+            return {"ok": False, "path": "", "error": str(e)}
 
     # ── OCR ────────────────────────────────────────────────────────────────
 
