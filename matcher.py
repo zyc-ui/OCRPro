@@ -19,6 +19,7 @@ matcher.py — 两阶段描述相似度匹配模块
     results = find_best_matches(customer_desc, db_rows, top_k=5)
 """
 
+import importlib
 import logging
 import math
 import os
@@ -53,7 +54,7 @@ _USE_BGE     = False
 def _try_load_bge():
     global _ort_session, _tokenizer, _USE_BGE
     try:
-        import onnxruntime as ort
+        ort = importlib.import_module("onnxruntime")
 
         candidates = [
             os.path.join(os.path.dirname(__file__), "models", "bge-small-en-v1.5", "model.onnx"),
@@ -79,9 +80,9 @@ def _try_load_bge():
             logger.info("[Matcher] 未找到 BGE ONNX 模型文件，使用 TF-IDF 模式")
             return False
 
-        from transformers import AutoTokenizer
+        transformers = importlib.import_module("transformers")
         tok_dir    = os.path.dirname(onnx_path)
-        _tokenizer = AutoTokenizer.from_pretrained(tok_dir)
+        _tokenizer = transformers.AutoTokenizer.from_pretrained(tok_dir)
 
         so = ort.SessionOptions()
         so.log_severity_level = 3
@@ -97,7 +98,10 @@ def _try_load_bge():
         return False
 
 
-_try_load_bge()
+if os.environ.get("OCRPRO_ENABLE_BGE", "0") == "1":
+    _try_load_bge()
+else:
+    logger.info("[Matcher] 默认关闭 BGE 模式（设置 OCRPRO_ENABLE_BGE=1 可启用）")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
