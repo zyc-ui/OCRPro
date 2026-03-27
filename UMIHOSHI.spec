@@ -45,6 +45,14 @@ a = Analysis(
     ] + frontend_datas + tesseract_datas,
     hiddenimports=[
         'webview',
+        'webview.platforms.qt',
+        'PySide6',
+        'PySide6.QtCore',
+        'PySide6.QtGui',
+        'PySide6.QtWidgets',
+        'PySide6.QtWebChannel',
+        'PySide6.QtWebEngineCore',
+        'PySide6.QtWebEngineWidgets',
         'tkinter',
         'tkinter.ttk',
         'tkinter.messagebox',
@@ -68,6 +76,11 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=[
+        # 强制走 Qt 后端，排除 WinForms/pythonnet，避免分发机器 CLR 兼容问题
+        'pythonnet',
+        'clr_loader',
+        'clr',
+        'webview.platforms.winforms',
         'matplotlib',
         'numpy',
         'pandas',

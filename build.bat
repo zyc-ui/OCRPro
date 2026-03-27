@@ -17,6 +17,11 @@ pyinstaller --version >nul 2>nul || (
   exit /b 1
 )
 
+python -c "import PySide6" >nul 2>nul || (
+  echo [ERROR] 未找到 PySide6。请先执行: pip install PySide6
+  exit /b 1
+)
+
 if defined TESSERACT_DIR (
   if not exist "%TESSERACT_DIR%" (
     echo [WARN] TESSERACT_DIR 不存在: %TESSERACT_DIR%

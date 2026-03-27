@@ -7,6 +7,7 @@ app.py — 应用启动入口
 import logging
 import os
 import sys
+from pathlib import Path
 
 import webview
 
@@ -31,6 +32,11 @@ def _frontend_path() -> str:
     return os.path.join(base, "frontend", "index.html")
 
 
+def _frontend_url(path: str) -> str:
+    # Qt WebEngine 对本地文件使用 file:// URI 更稳定（尤其在中文路径场景下）
+    return Path(path).resolve().as_uri()
+
+
 def main() -> None:
     api   = API()
     # DevTools 默认永远关闭；如需调试请临时将 False 改为 True
@@ -43,7 +49,7 @@ def main() -> None:
 
     window = webview.create_window(
         title            = "Seastar",
-        url              = html,
+        url              = _frontend_url(html),
         js_api           = api,
         width            = 1440,
         height           = 860,
@@ -54,8 +60,13 @@ def main() -> None:
 
     api.set_window(window)
 
+    # 在 Windows 上强制使用 Qt 后端，避免默认 WinForms 依赖 pythonnet/.NET，
+    # 打包到其他机器时更稳定（不依赖目标机 CLR 环境）。
+    gui = "qt" if sys.platform.startswith("win") else None
+    logging.info("启动 WebView，gui=%s", gui or "auto")
+
     # debug=False：默认不打开 DevTools；传 --debug 时才开启
-    webview.start(debug=False, http_server=False)
+    webview.start(debug=False, http_server=False, gui=gui)
 
 
 if __name__ == "__main__":
