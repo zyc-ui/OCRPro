@@ -37,6 +37,19 @@ def _frontend_url(path: str) -> str:
     return Path(path).resolve().as_uri()
 
 
+def _resolve_gui_backend() -> str | None:
+    """
+    选择 pywebview 后端。
+
+    - 默认在 Windows 使用自动选择（None），避免强制 Qt 导致无窗口卡住。
+    - 可通过环境变量 OCRPRO_WEBVIEW_GUI 覆盖（如 qt / edgechromium / cef / auto）。
+    """
+    raw = os.getenv("OCRPRO_WEBVIEW_GUI", "").strip().lower()
+    if not raw or raw == "auto":
+        return None
+    return raw
+
+
 def main() -> None:
     api   = API()
     # DevTools 默认永远关闭；如需调试请临时将 False 改为 True
@@ -60,13 +73,16 @@ def main() -> None:
 
     api.set_window(window)
 
-    # 在 Windows 上强制使用 Qt 后端，避免默认 WinForms 依赖 pythonnet/.NET，
-    # 打包到其他机器时更稳定（不依赖目标机 CLR 环境）。
-    gui = "qt" if sys.platform.startswith("win") else None
+    # 默认让 pywebview 自动选择后端；必要时可用 OCRPRO_WEBVIEW_GUI 强制指定。
+    gui = _resolve_gui_backend()
     logging.info("启动 WebView，gui=%s", gui or "auto")
 
-    # debug=False：默认不打开 DevTools；传 --debug 时才开启
-    webview.start(debug=False, http_server=False, gui=gui)
+    try:
+        # debug=False：默认不打开 DevTools；传 --debug 时才开启
+        webview.start(debug=False, http_server=False, gui=gui)
+    except Exception:
+        logging.exception("WebView 启动失败（gui=%s）", gui or "auto")
+        raise
 
 
 if __name__ == "__main__":
