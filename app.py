@@ -72,6 +72,8 @@ def main() -> None:
         min_size         = (1024, 600),
         background_color = "#ffffff",
         text_select      = True,
+        x=100,  # ← 新增：距屏幕左边 100px
+        y=50,  # ← 新增：距屏幕顶部 50px
     )
 
     api.set_window(window)
