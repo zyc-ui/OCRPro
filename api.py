@@ -263,77 +263,107 @@ class API:
 
     def fill_rfq_prices(self, url: str, prices: list) -> dict:
         """
-        将查询到的价格按顺序写入 RFQ 表格的 Unit Price 列，
+        将查询到的价格按顺序回写到 RFQ 页面中
+        id 匹配 cdSupplierResp_ctlXX_txtPrice 的 <input> 的 value 属性，
         保存为本地临时 HTML 后用默认浏览器打开。
+
+        规则：
+        - 只修改 cdSupplierResp_ctlXX_txtPrice（XX = 01..99）的 value
+        - 不触碰 txtDiscount / txtLeadTime / txtQuantityAvailable /
+          __VIEWSTATE / __EVENTVALIDATION 等任何其他字段
+        - 价格统一保留两位小数（空值或无法解析时保持原 value 不变）
 
         参数：
             url    : 原始 RFQ 链接或本地 HTML 文件路径
             prices : 与询价行顺序对应的价格列表（字符串，可含 $ 前缀）
 
         返回：
-            {"ok": True/False, "path": "...", "error": "..."}
+            {"ok": True/False, "path": "...", "error": "...", "filled": N}
         """
-        try:
-            import os
-            import tempfile
-            import webbrowser
-            from bs4 import NavigableString
-            from Rfq_quotation_tool import load_html, find_rfq_table
+        import os
+        import re
+        import tempfile
+        import webbrowser
 
+        try:
+            from Rfq_quotation_tool import load_html
+        except ImportError as e:
+            return {"ok": False, "path": "", "error": f"缺少依赖: {e}", "filled": 0}
+
+        try:
             logging.info(f"[API] fill_rfq_prices: url={url!r}, {len(prices)} 条价格")
 
             soup = load_html(url.strip())
-            table, raw_headers, data_rows = find_rfq_table(soup)
-            if table is None:
-                return {"ok": False, "path": "", "error": "未找到询价表格，请确认链接正确"}
 
-            # 找 Unit Price 列索引（不区分大小写）
-            unit_price_idx = next(
-                (i for i, h in enumerate(raw_headers)
-                 if 'unit' in h.lower() and 'price' in h.lower()),
-                None
+            # ── 定位所有价格 input，按行号排序 ─────────────────────────────
+            # id 格式：cdSupplierResp_ctl01_txtPrice … cdSupplierResp_ctl25_txtPrice
+            _ID_PAT = re.compile(
+                r'^cdSupplierResp_ctl(\d+)_txtPrice$', re.IGNORECASE
             )
-            if unit_price_idx is None:
-                # 退而求其次：找单独的 price 列
-                unit_price_idx = next(
-                    (i for i, h in enumerate(raw_headers) if 'price' in h.lower()),
-                    None
-                )
-            if unit_price_idx is None:
-                return {"ok": False, "path": "", "error": "表格中未找到 Unit Price 列"}
 
-            # 过滤有效数据行
-            valid_rows = [tr for tr in data_rows if tr.find_all(['td', 'th'])]
-            logging.info(f"[API] fill_rfq_prices: 表格有效行={len(valid_rows)}, 价格数={len(prices)}")
+            price_inputs = []
+            for tag in soup.find_all('input'):
+                tag_id = tag.get('id', '')
+                m = _ID_PAT.match(tag_id)
+                if m:
+                    price_inputs.append((int(m.group(1)), tag))
 
-            for i, tr in enumerate(valid_rows):
-                if i >= len(prices):
-                    break
-                price_val = str(prices[i]).replace('$', '').strip()
-                if not price_val:
+            if not price_inputs:
+                return {
+                    "ok": False, "path": "", "filled": 0,
+                    "error": (
+                        "页面中未找到任何 cdSupplierResp_ctlXX_txtPrice 输入框，"
+                        "请确认链接或 HTML 文件正确。"
+                    ),
+                }
+
+            # 按行号（01, 02, …）升序排列，与询价行顺序一一对应
+            price_inputs.sort(key=lambda x: x[0])
+            logging.info(
+                f"[API] fill_rfq_prices: 找到 {len(price_inputs)} 个价格输入框，"
+                f"价格列表共 {len(prices)} 条"
+            )
+
+            # ── 逐行写入 value ──────────────────────────────────────────────
+            filled = 0
+            for idx, (row_no, tag) in enumerate(price_inputs):
+                if idx >= len(prices):
+                    break  # 价格列表已用完，剩余保持原值
+
+                raw = str(prices[idx]).replace('$', '').strip()
+                if not raw:
+                    continue  # 空价格 → 跳过，保持原值
+
+                try:
+                    formatted = f"{float(raw):.2f}"
+                except ValueError:
+                    logging.warning(
+                        f"[API] 第 {row_no:02d} 行价格无法解析为数字: {raw!r}，跳过"
+                    )
                     continue
-                cells = tr.find_all(['td', 'th'])
-                if unit_price_idx < len(cells):
-                    cell = cells[unit_price_idx]
-                    cell.clear()
-                    cell.append(NavigableString(price_val))
 
-            # 保存到临时文件
+                tag['value'] = formatted
+                filled += 1
+                logging.debug(f"[API]   ctl{row_no:02d} → {formatted}")
+
+            # ── 保存到临时文件 ──────────────────────────────────────────────
             temp_path = os.path.join(tempfile.gettempdir(), 'rfq_filled.html')
             with open(temp_path, 'w', encoding='utf-8') as f:
                 f.write(str(soup))
 
-            # 用默认浏览器打开
+            # ── 用默认浏览器打开 ────────────────────────────────────────────
             file_url = 'file:///' + temp_path.replace('\\', '/')
             webbrowser.open(file_url)
-            logging.info(f"[API] fill_rfq_prices 完成，已保存至 {temp_path}")
-            return {"ok": True, "path": temp_path, "error": ""}
 
-        except ImportError as e:
-            return {"ok": False, "path": "", "error": f"缺少依赖: {e}"}
+            logging.info(
+                f"[API] fill_rfq_prices 完成：共填写 {filled} 行，"
+                f"已保存至 {temp_path}"
+            )
+            return {"ok": True, "path": temp_path, "error": "", "filled": filled}
+
         except Exception as e:
-            logging.error(f"[API] fill_rfq_prices 失败: {e}")
-            return {"ok": False, "path": "", "error": str(e)}
+            logging.error(f"[API] fill_rfq_prices 失败: {e}", exc_info=True)
+            return {"ok": False, "path": "", "error": str(e), "filled": 0}
 
     # ── OCR ────────────────────────────────────────────────────────────────
 
