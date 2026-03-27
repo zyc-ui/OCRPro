@@ -65,7 +65,7 @@ def main() -> None:
 
     window = webview.create_window(
         title            = "Seastar",
-        url              = _frontend_url(html),
+        url              = html,
         js_api           = api,
         width            = 1440,
         height           = 860,
