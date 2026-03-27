@@ -41,11 +41,14 @@ def _resolve_gui_backend() -> str | None:
     """
     选择 pywebview 后端。
 
-    - 默认在 Windows 使用自动选择（None），避免强制 Qt 导致无窗口卡住。
+    - 默认在 Windows 优先使用 EdgeChromium，避免自动选择到 WinForms 后要求 pythonnet。
+    - 若环境变量显式指定 qt，则仍可强制 Qt。
     - 可通过环境变量 OCRPRO_WEBVIEW_GUI 覆盖（如 qt / edgechromium / cef / auto）。
     """
     raw = os.getenv("OCRPRO_WEBVIEW_GUI", "").strip().lower()
     if not raw or raw == "auto":
+        if sys.platform.startswith("win"):
+            return "edgechromium"
         return None
     return raw
 
@@ -73,7 +76,7 @@ def main() -> None:
 
     api.set_window(window)
 
-    # 默认让 pywebview 自动选择后端；必要时可用 OCRPRO_WEBVIEW_GUI 强制指定。
+    # 默认使用 _resolve_gui_backend 的平台策略；可用 OCRPRO_WEBVIEW_GUI 强制覆盖。
     gui = _resolve_gui_backend()
     logging.info("启动 WebView，gui=%s", gui or "auto")
 
