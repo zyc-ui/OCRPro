@@ -48,7 +48,7 @@ def _resolve_gui_backend() -> str | None:
     raw = os.getenv("OCRPRO_WEBVIEW_GUI", "").strip().lower()
     if not raw or raw == "auto":
         if sys.platform.startswith("win"):
-            return "edgechromium"
+            return "qt"
         return None
     return raw
 

@@ -45,7 +45,9 @@ a = Analysis(
     ] + frontend_datas + tesseract_datas,
     hiddenimports=[
         'webview',
+        'webview.platforms.edgechromium',
         'webview.platforms.qt',
+        'webview.http',
         'PySide6',
         'PySide6.QtCore',
         'PySide6.QtGui',
@@ -81,6 +83,7 @@ a = Analysis(
         'clr_loader',
         'clr',
         'webview.platforms.winforms',
+        'webview.platforms.edgechromium',
         'matplotlib',
         'numpy',
         'pandas',
