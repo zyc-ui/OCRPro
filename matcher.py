@@ -6,8 +6,13 @@ matcher.py — 两阶段描述相似度匹配模块
     filter_by_category()  → 从全量价目表中筛出同类候选行
     效果：将搜索空间从 3000+ 行缩减到 30~200 行，消灭跨类目误匹配
 
-阶段 2 · 语义精搜（TF-IDF 或 BGE ONNX）
-    仅在候选子集上计算相似度，返回 top_k 结果
+阶段 2 · 字段加权精搜（TF-IDF 或 BGE ONNX）
+    Stage A — 详情优先：仅对"详情"列打分；
+              若最高分 ≥ _DETAILS_PRIORITY_THRESHOLD，视为"详情完全匹配"，
+              直接返回结果（优先选择该行）。
+    Stage B — 加权组合：详情列未能高分命中时，改用加权文本
+              （详情 ×3 + 报价 ×1 + 其余字段 ×1）再次检索，
+              确保报价列也被覆盖，且详情列权重始终高于报价列。
 
 外部只需调用：
     from matcher import find_best_matches
@@ -22,6 +27,19 @@ import sys
 from typing import List, Tuple, Dict, Optional
 
 logger = logging.getLogger(__name__)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 字段加权常量
+# ─────────────────────────────────────────────────────────────────────────────
+
+# 详情列精确匹配阈值：TF-IDF / BGE 余弦相似度 ≥ 此值时，视为"详情完全匹配"，
+# 直接返回结果，不再继续搜索报价列。可根据实际效果在 0.30~0.55 之间调整。
+_DETAILS_PRIORITY_THRESHOLD: float = 0.40
+
+# 加权组合中各字段重复次数（通过 TF 重复拉高权重）
+_WEIGHT_DETAILS = 3   # 详情 ×3
+_WEIGHT_OFFER   = 1   # 报价 ×1
+_WEIGHT_OTHER   = 1   # 描述 / 备注 ×1
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 尝试加载 BGE ONNX 模型（失败则静默降级到 TF-IDF）
@@ -110,10 +128,8 @@ def _tokenize(text: str) -> List[str]:
     - 普通字母词按常规切分
     """
     text = text.lower()
-    # 先提取"数字-单位"组合，如 12w, 100ah, 5.5-4, 85-265vac
     num_unit = re.findall(r"\d+[\.\-]?\d*\s*[a-z]{1,5}", text)
-    # 再提取普通字母词（长度 > 1）
-    words = re.findall(r"[a-z][a-z0-9]+", text)
+    words    = re.findall(r"[a-z][a-z0-9]+", text)
     return [t.replace(" ", "") for t in num_unit] + [w for w in words if len(w) > 1]
 
 
@@ -159,6 +175,59 @@ def _tfidf_encode_query(query: str, idf: Dict[str, float]) -> Dict[str, float]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 文本构建辅助函数
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _build_details_text(row: dict) -> str:
+    """
+    仅提取"详情"列文本，用于 Stage A 精确匹配。
+    返回空字符串表示该行详情列为空。
+    """
+    return (row.get("详情") or "").strip()
+
+
+def _build_weighted_text(row: dict) -> str:
+    """
+    构建加权组合文本（Stage B 兜底）：
+      - 详情 ×_WEIGHT_DETAILS（重复拉高 TF，权重最高）
+      - 报价 ×_WEIGHT_OFFER
+      - 描述 / 备注1 / 备注2 ×_WEIGHT_OTHER
+
+    若所有字段均为空，退化到原始拼接方式。
+    """
+    det = (row.get("详情") or "").strip()
+    off = (row.get("报价") or "").strip()
+
+    parts: List[str] = []
+    if det:
+        parts.extend([det] * _WEIGHT_DETAILS)
+    if off:
+        parts.extend([off] * _WEIGHT_OFFER)
+
+    for key in ["描述", "备注1", "备注2"]:
+        v = (row.get(key) or "").strip()
+        if v:
+            parts.extend([v] * _WEIGHT_OTHER)
+
+    # 全部为空时的兜底（与旧 _build_db_text 等价）
+    if not parts:
+        for key in ["描述", "详情", "报价", "备注1", "备注2"]:
+            v = (row.get(key) or "").strip()
+            if v:
+                parts.append(v)
+
+    return " | ".join(parts)
+
+
+def _build_db_text(row: dict) -> str:
+    """
+    全量缓存使用的文本构建（加权版）。
+    与 _build_weighted_text 逻辑相同，保持一致性。
+    """
+    return _build_weighted_text(row)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # 全量缓存（针对整个价目表，category 子集用局部编码，不持久化缓存）
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -169,16 +238,6 @@ _cache: Dict = {
     "idf":         {},
     "row_indices": [],
 }
-
-
-def _build_db_text(row: dict) -> str:
-    """拼接价目表行中与描述相关的字段。"""
-    parts = []
-    for key in ["描述", "详情", "报价", "备注1", "备注2"]:
-        v = (row.get(key) or "").strip()
-        if v:
-            parts.append(v)
-    return " | ".join(parts)
 
 
 def _ensure_cache(db_rows: List[dict]) -> bool:
@@ -216,7 +275,7 @@ def _ensure_cache(db_rows: List[dict]) -> bool:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 局部编码（针对 category 候选子集，不使用持久化缓存）
+# 局部编码（针对 category 候选子集）— 核心两阶段匹配逻辑
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _search_in_subset(
@@ -226,46 +285,119 @@ def _search_in_subset(
     min_score: float,
 ) -> List[Tuple[int, float, dict]]:
     """
-    在给定的行子集里做语义搜索。
-    返回 [(子集内索引, 分数, row_dict), ...]，按分数降序。
-    """
-    texts, valid_indices = [], []
-    for i, row in enumerate(subset_rows):
-        t = _build_db_text(row)
-        if t.strip():
-            texts.append(t)
-            valid_indices.append(i)
+    在给定的行子集里做字段加权语义搜索。
 
-    if not texts:
+    匹配策略（两阶段）：
+    ─────────────────────────────────────────────────────────────────────
+    Stage A — 详情优先
+        仅对"详情"列文本打分。
+        若最高分 ≥ _DETAILS_PRIORITY_THRESHOLD，视为"详情完全匹配"，
+        直接返回该阶段结果（该行优先级最高）。
+
+    Stage B — 加权组合兜底
+        Stage A 未能高分命中时，使用加权文本
+        （详情 ×3 权重 + 报价 ×1 权重 + 其余字段 ×1 权重）重新打分，
+        保证报价列也被搜索，且详情列权重始终高于报价列。
+    ─────────────────────────────────────────────────────────────────────
+
+    返回 [(子集内原始索引, 分数, row_dict), ...]，按分数降序。
+    """
+    # ── 构建两套文本索引 ────────────────────────────────────────────────────
+    details_texts  : List[str] = []   # Stage A: 详情列
+    weighted_texts : List[str] = []   # Stage B: 加权组合
+    valid_indices  : List[int] = []   # 本子集中的有效行号
+
+    for i, row in enumerate(subset_rows):
+        wt = _build_weighted_text(row)
+        if not wt.strip():
+            continue
+        details_texts.append(_build_details_text(row))
+        weighted_texts.append(wt)
+        valid_indices.append(i)
+
+    if not valid_indices:
         return []
 
+    # ── 辅助：从打分列表中选 top_k ─────────────────────────────────────────
+    def _pick(scores_list: List[float]) -> List[Tuple[int, float, dict]]:
+        scored = sorted(enumerate(scores_list), key=lambda x: -x[1])[:top_k * 2]
+        out: List[Tuple[int, float, dict]] = []
+        for li, sc in scored:
+            if sc < min_score:
+                continue
+            orig = valid_indices[li]
+            out.append((orig, round(float(sc), 4), subset_rows[orig]))
+            if len(out) >= top_k:
+                break
+        return out
+
+    # ── BGE 路径 ─────────────────────────────────────────────────────────────
     if _USE_BGE:
         try:
-            all_vecs = _bge_encode([query] + texts)
+            # Stage A: 仅对非空"详情"行打分
+            det_pairs = [(li, t) for li, t in enumerate(details_texts) if t.strip()]
+            if det_pairs:
+                det_li, det_corp = zip(*det_pairs)
+                all_vecs = _bge_encode([query] + list(det_corp))
+                q_vec    = all_vecs[0]
+                det_vecs = all_vecs[1:]
+                det_sc   = [sum(a * b for a, b in zip(q_vec, dv)) for dv in det_vecs]
+
+                if max(det_sc) >= _DETAILS_PRIORITY_THRESHOLD:
+                    # 将局部得分映射回全 valid_indices 空间（未出现行得分为 0）
+                    full_sc = [0.0] * len(valid_indices)
+                    for pos, li in enumerate(det_li):
+                        full_sc[li] = det_sc[pos]
+                    res = _pick(full_sc)
+                    if res:
+                        logger.debug(
+                            f"[Matcher-BGE] Stage A 命中，"
+                            f"最高详情分={max(det_sc):.3f}"
+                        )
+                        return res
+
+            # Stage B: 加权组合
+            all_vecs = _bge_encode([query] + weighted_texts)
             q_vec    = all_vecs[0]
-            db_vecs  = all_vecs[1:]
-            scores   = [sum(a * b for a, b in zip(q_vec, dv)) for dv in db_vecs]
+            w_vecs   = all_vecs[1:]
+            w_sc     = [sum(a * b for a, b in zip(q_vec, dv)) for dv in w_vecs]
+            logger.debug("[Matcher-BGE] Stage B 加权组合")
+            return _pick(w_sc)
+
         except Exception as e:
             logger.error(f"[Matcher] BGE 子集编码失败: {e}")
             return []
-    else:
-        _, idf   = _tfidf_vectors(texts)
-        q_vec    = _tfidf_encode_query(query, idf)
-        db_vecs, _ = _tfidf_vectors(texts)
-        if not q_vec:
-            return []
-        scores = [_cosine_sparse(q_vec, dv) for dv in db_vecs]
 
-    scored = sorted(enumerate(scores), key=lambda x: -x[1])[:top_k * 2]
-    results = []
-    for local_idx, score in scored:
-        if score < min_score:
-            continue
-        orig_idx = valid_indices[local_idx]
-        results.append((orig_idx, round(float(score), 4), subset_rows[orig_idx]))
-        if len(results) >= top_k:
-            break
-    return results
+    # ── TF-IDF 路径 ──────────────────────────────────────────────────────────
+
+    # Stage A: 详情优先
+    det_pairs = [(li, t) for li, t in enumerate(details_texts) if t.strip()]
+    if det_pairs:
+        det_li, det_corp = zip(*det_pairs)
+        det_vecs, det_idf = _tfidf_vectors(list(det_corp))
+        q_det = _tfidf_encode_query(query, det_idf)
+        if q_det:
+            det_sc = [_cosine_sparse(q_det, dv) for dv in det_vecs]
+            if max(det_sc) >= _DETAILS_PRIORITY_THRESHOLD:
+                full_sc = [0.0] * len(valid_indices)
+                for pos, li in enumerate(det_li):
+                    full_sc[li] = det_sc[pos]
+                res = _pick(full_sc)
+                if res:
+                    logger.debug(
+                        f"[Matcher-TFIDF] Stage A 命中，"
+                        f"最高详情分={max(det_sc):.3f}"
+                    )
+                    return res
+
+    # Stage B: 加权组合兜底
+    w_vecs, w_idf = _tfidf_vectors(weighted_texts)
+    q_w = _tfidf_encode_query(query, w_idf)
+    if not q_w:
+        return []
+    w_sc = [_cosine_sparse(q_w, wv) for wv in w_vecs]
+    logger.debug("[Matcher-TFIDF] Stage B 加权组合")
+    return _pick(w_sc)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -279,7 +411,12 @@ def find_best_matches(
     min_score:     float = 0.05,
 ) -> List[Tuple[int, float, dict]]:
     """
-    两阶段检索：类目路由 → 语义精搜。
+    两阶段检索：大类路由 → 字段加权精搜。
+
+    匹配优先级：
+      1. 类目路由缩小候选集（category_router）
+      2. 详情列精确匹配（Stage A）
+      3. 详情×3 + 报价×1 加权组合（Stage B 兜底）
 
     参数：
         customer_desc : 客户描述文本
@@ -293,7 +430,7 @@ def find_best_matches(
     if not customer_desc or not customer_desc.strip() or not db_rows:
         return []
 
-    # ── Stage 1: 类目路由 ────────────────────────────────────────────────
+    # ── Stage 1: 大类路由 ────────────────────────────────────────────────────
     try:
         from category_router import route as category_route
         category, candidates, is_fallback = category_route(
@@ -309,21 +446,18 @@ def find_best_matches(
         candidates  = db_rows
         is_fallback = True
 
-    # ── Stage 2: 语义精搜 ────────────────────────────────────────────────
+    # ── Stage 2: 字段加权精搜（详情优先 → 加权组合） ─────────────────────────
     if not is_fallback:
-        # 候选子集较小，直接局部编码（更精准）
         sub_results = _search_in_subset(customer_desc, candidates, top_k, min_score)
         if sub_results:
             # 将子集内索引换算回 db_rows 的原始索引
-            # candidates[i] 对应 db_rows 的哪一行？构建映射
-            # 注意：category_route 返回的 candidates 是 db_rows 的子切片，
-            # 需要用对象 id 比对（避免 dict 深拷贝问题）
             id_to_orig = {id(db_rows[j]): j for j in range(len(db_rows))}
-            mapped = []
+            mapped: List[Tuple[int, float, dict]] = []
             for sub_idx, score, row in sub_results:
-                orig = id_to_orig.get(id(candidates[sub_idx] if sub_idx < len(candidates) else row))
+                orig = id_to_orig.get(
+                    id(candidates[sub_idx]) if sub_idx < len(candidates) else id(row)
+                )
                 if orig is None:
-                    # 退回：在 db_rows 中线性找这行
                     orig = next(
                         (k for k, r in enumerate(db_rows) if id(r) == id(row)), sub_idx
                     )
@@ -331,10 +465,9 @@ def find_best_matches(
             if mapped:
                 return mapped
 
-        # 子集搜索无结果时退化至全量
         logger.info("[Matcher] 子集搜索无结果，退化至全量搜索")
 
-    # 全量搜索（原逻辑）
+    # ── 全量搜索兜底（使用加权缓存）────────────────────────────────────────────
     if not _ensure_cache(db_rows):
         return []
 
@@ -353,7 +486,7 @@ def find_best_matches(
         scores = [_cosine_sparse(q_vec, dv) for dv in _cache["vectors"]]
 
     scored = sorted(enumerate(scores), key=lambda x: -x[1])[:top_k * 2]
-    results = []
+    results: List[Tuple[int, float, dict]] = []
     for cache_idx, score in scored:
         if score < min_score:
             continue
