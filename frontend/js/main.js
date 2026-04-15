@@ -113,6 +113,15 @@ const _I18N = {
     finish_fail:      '填写失败：',
     // ── Fix5 导航 ──
     match_pos:        '{pos}/{total}',
+    // ── 向量检索 Toggle ──
+    vector_mode_label:   '向量检索',
+    vector_querying:     '向量检索中…',
+    vector_success:      '✅ 向量检索完成，已更新 {n} 条结果',
+    vector_err:          '向量检索失败：',
+    vector_off_title:    '关闭向量检索',
+    vector_off_msg:      '是否清除当前向量结果并使用本地匹配重新查询？\n\n• 点击「是」：关闭向量模式，用本地 TF-IDF 重新匹配\n• 点击「否」：保持当前向量结果不变',
+    vector_off_yes:      '是，重新本地匹配',
+    vector_off_no:       '否，保持现状',
   },
   en: {
     app_name:        'Seastar',
@@ -200,6 +209,15 @@ const _I18N = {
     finish_fail:      'Fill failed: ',
     // ── Fix5 navigation ──
     match_pos:        '{pos}/{total}',
+    // ── Vector Toggle ──
+    vector_mode_label:   'Vector Search',
+    vector_querying:     'Vector searching…',
+    vector_success:      '✅ Vector search done, {n} results updated',
+    vector_err:          'Vector search failed: ',
+    vector_off_title:    'Disable Vector Search',
+    vector_off_msg:      'Clear vector results and re-match using local TF-IDF?\n\n• Yes: switch to local matching\n• No: keep current vector results',
+    vector_off_yes:      'Yes, re-match locally',
+    vector_off_no:       'No, keep results',
   },
 };
 
@@ -240,12 +258,19 @@ function App() {
     plKwOpen:    false,
 
     // ── RFQ 相关 ──
-    _rfqHeaderMap: null,   // 列头重映射
-    _rfqUrl:       '',     // Fix4: 记录最近解析的 RFQ 链接
+    _rfqHeaderMap: null,
+    _rfqUrl:       '',
 
     // ── Fix5: 搜索结果导航 ──
     _priceMatchTotal: 0,
     _priceMatchPos:   0,
+
+    // ── 向量检索 Toggle ──────────────────────────────────────────
+    vectorMode:          false,   // 当前是否启用向量检索
+    isVectorQuerying:    false,   // 向量检索进行中
+    vectorConfirmDlg: {           // 关闭确认弹窗
+      open:  false,
+    },
 
     // ── Toast ──
     toast: { show: false, msg: '', _timer: null },
@@ -362,12 +387,116 @@ function App() {
                     'Anchor Marine','RMS Marine','Fuji Trading','Con Lash'];
       this.companyColLabel = LIST.includes(this.company) ? this.company : 'High / Medium Price';
       this._plLoadedFor = null;
+
+      // 切换公司时重置向量模式
+      if (this.vectorMode) {
+        this.vectorMode = false;
+      }
+
       if (this.company !== 'Seven Seas' && this._rfqHeaderMap) {
         this._rfqHeaderMap = null;
         this._rfqUrl       = '';
         if (queryGridApi) queryGridApi.setHeaderNames(
           this.lang === 'en' ? _COL_HEADERS_EN : {}
         );
+      }
+    },
+
+    // ══════════════════════════════════════════════
+    // 向量检索 Toggle 逻辑
+    // ══════════════════════════════════════════════
+
+    /**
+     * Toggle 点击入口。
+     * - 当前为 OFF → 直接开启并调用向量查询
+     * - 当前为 ON  → 弹出确认弹窗，让用户选择是否切回本地
+     */
+    async onVectorToggle() {
+      if (!this.vectorMode) {
+        // ── 开启向量模式 ──────────────────────────────────────
+        if (!this.productItems.length) {
+          alert(this.t('no_items_alert'));
+          return;
+        }
+        this.vectorMode = true;
+        await this._runVectorQuery();
+      } else {
+        // ── 已开启，点击要关闭 → 弹出确认 ─────────────────────
+        this.vectorConfirmDlg.open = true;
+      }
+    },
+
+    /**
+     * 确认弹窗：用户点击「是」→ 关闭向量模式，用本地重新匹配
+     */
+    async vectorConfirmYes() {
+      this.vectorConfirmDlg.open = false;
+      this.vectorMode = false;
+      // 重新用本地 TF-IDF 匹配
+      await this.queryPrices();
+    },
+
+    /**
+     * 确认弹窗：用户点击「否」→ 保持向量结果，按钮仍为 ON
+     */
+    vectorConfirmNo() {
+      this.vectorConfirmDlg.open = false;
+      // vectorMode 保持 true，结果不变
+    },
+
+    /**
+     * 核心：调用后端 query_prices_vector 并刷新表格
+     */
+    async _runVectorQuery() {
+      if (!this.productItems.length) { alert(this.t('no_items_alert')); return; }
+      if (!this.company)             { alert(this.t('no_company'));      return; }
+
+      this.isVectorQuerying = true;
+      try {
+        const d = await window.pywebview.api.query_prices_vector(
+          this.productItems, this.company
+        );
+
+        if (d.error) {
+          alert(this.t('vector_err') + d.error);
+          this.vectorMode = false;  // 失败时回退
+          return;
+        }
+        if (!d?.cols?.length || !d?.rows) {
+          alert(this.t('query_fmt_err'));
+          this.vectorMode = false;
+          return;
+        }
+        if (!d.rows.length) {
+          alert(this.t('query_no_data'));
+          this.vectorMode = false;
+          return;
+        }
+
+        this._lastQueryAllCols = d.cols;
+        this.queryResults = d.rows.map(row => {
+          const obj = {};
+          d.cols.forEach((c, i) => { obj[c] = row[i] || ''; });
+          return obj;
+        });
+
+        const visCols = this._visibleQueryCols(d.cols);
+        updateQueryResultGrid(d.cols, d.rows, this.colWidths, visCols);
+        if (queryGridApi) queryGridApi.setRowHeight(this.rowHeight);
+
+        // 保持 RFQ 表头映射（如果有的话）
+        if (queryGridApi && this._rfqHeaderMap) {
+          queryGridApi.setHeaderNames(this._rfqHeaderMap);
+        }
+
+        this.showToast(this.tf('vector_success', { n: d.rows.length }), 4000);
+
+      } catch (e) {
+        console.error('[VectorQuery]', e);
+        alert(this.t('vector_err') + String(e));
+        this.vectorMode = false;
+      } finally {
+        this.isVectorQuerying = false;
       }
     },
 
@@ -464,13 +593,17 @@ function App() {
         this.codesText = this.productItems
           .map(i => i.desc ? `${i.code}: ${i.desc}` : i.code).join('  |  ');
 
-        // Fix4: 记录 RFQ URL 供 Finish 使用
         this._rfqUrl = url;
 
         this.pasteLinkDlg.open = false;
         this.showToast(this.tf('rfq_toast', { n: this.productItems.length }), 4000);
 
-        await this.queryPrices();
+        // 按当前模式查询（向量模式 or 本地模式）
+        if (this.vectorMode) {
+          await this._runVectorQuery();
+        } else {
+          await this.queryPrices();
+        }
 
         this._rfqHeaderMap = {
           '商品代码': 'SevenSeas Code',
@@ -488,13 +621,12 @@ function App() {
     },
 
     // ══════════════════════════════════════════════
-    // Fix4: Finish 按钮 — 将价格填入 RFQ 表格并在浏览器打开
+    // Fix4: Finish 按钮
     // ══════════════════════════════════════════════
     async finishRFQ() {
       if (!this.queryResults.length) { alert(this.t('no_items_alert')); return; }
       if (!this._rfqUrl)             { alert(this.t('finish_no_url')); return; }
 
-      // 提取当前公司价格列（Seven Seas 时 key 为 "Seven Seas"）
       const priceKey = this.company === 'Seven Seas'
         ? 'Seven Seas'
         : (this._lastQueryAllCols.find(c => c === 'High Price') ? 'High Price' : 'Medium Price');
@@ -514,7 +646,7 @@ function App() {
     },
 
     // ══════════════════════════════════════════════
-    // 查询价格
+    // 查询价格（本地模式）
     // ══════════════════════════════════════════════
     async queryPrices() {
       if (!this.productItems.length) { alert(this.t('no_items_alert')); return; }
@@ -633,7 +765,6 @@ function App() {
       const kwKws = this.plKwSel.map(k => k.toUpperCase());
       const all   = [...new Set([...barKws, ...kwKws])];
       const n     = searchPriceList(all);
-      // Fix5: 记录总匹配数并重置位置
       this._priceMatchTotal = n;
       this._priceMatchPos   = 0;
       if (n)              this.priceStats = this.tf('matched', { n }) + (n > 1 ? `  (1/${n})` : '');
@@ -693,7 +824,6 @@ function App() {
         await this._applyPriceListRow(rowIdx, rowData, sel);
         this.activeTab = 'query';
       };
-      // Fix2: 精确定位到 IMPA/U8 对应行
       const kw = (rowData['IMPA代码'] || rowData['U8代码'] || rowData['商品代码'] || '')
                    .replace('未找到', '').trim();
       if (kw) setTimeout(() => locatePriceList(kw), 150);
@@ -804,9 +934,13 @@ function App() {
       this.codesText = this.t('no_item_code');
       this.selectedRowIdx = -1; this._lastQueryAllCols = [];
       this._rfqHeaderMap   = null;
-      this._rfqUrl         = '';   // Fix4: 清空 RFQ URL
+      this._rfqUrl         = '';
       this._priceMatchTotal = 0;
       this._priceMatchPos   = 0;
+      // 向量模式也重置
+      this.vectorMode       = false;
+      this.isVectorQuerying = false;
+      this.vectorConfirmDlg.open = false;
       if (queryGridApi) {
         queryGridApi.setGridOption('rowData', []);
         queryGridApi.setHeaderNames({});

@@ -155,13 +155,12 @@ class API:
 
         return matched_row, match_method
 
-    # ── 价格查询（Fix3：已移除"匹配方式"列）────────────────────────────────
+    # ── 价格查询（本地 TF-IDF 模式）────────────────────────────────────────
 
     def query_prices(self, items: list, company_name: str) -> dict:
         """批量查询，返回 {cols, rows}，描述优先匹配。"""
         logging.info(f"[API] query_prices: {len(items)} 条, 公司={company_name!r}")
 
-        # Fix3: 去掉 "匹配方式"
         fixed_cols = ["Item NO.", "商品代码", "客户描述", "数量", "UOM"]
         info_cols  = list(FL_DISPLAY[:PRICE_COL_START_IDX])
         col_idx    = get_company_col_idx(company_name)
@@ -196,6 +195,31 @@ class API:
 
         logging.info(f"[API] 虚拟表: {len(rows)} 行 × {len(all_cols)} 列")
         return {"cols": all_cols, "rows": rows}
+
+    # ── 价格查询（向量检索模式 · Seven Seas 专用）───────────────────────────
+
+    def query_prices_vector(self, items: list, company_name: str) -> dict:
+        """
+        使用 Voyage AI + Qdrant 向量检索进行批量匹配。
+        接口格式与 query_prices 完全一致，前端可无缝切换。
+
+        仅在 Seven Seas 公司 + 向量模式开启时由前端调用。
+        """
+        logging.info(
+            f"[API] query_prices_vector: {len(items)} 条, 公司={company_name!r}"
+        )
+        try:
+            from vector_matcher import batch_match
+            cols, rows = batch_match(items, company=company_name)
+            logging.info(f"[API] 向量匹配完成: {len(rows)} 行 × {len(cols)} 列")
+            return {"cols": cols, "rows": rows}
+        except ImportError as e:
+            msg = f"向量检索依赖未安装，请运行：pip install qdrant-client requests\n详情：{e}"
+            logging.error(f"[API] query_prices_vector ImportError: {e}")
+            return {"error": msg, "cols": [], "rows": []}
+        except Exception as e:
+            logging.error(f"[API] query_prices_vector 失败: {e}", exc_info=True)
+            return {"error": str(e), "cols": [], "rows": []}
 
     # ── 单条重新匹配 ─────────────────────────────────────────────────────────
 
@@ -262,24 +286,6 @@ class API:
     # ── Fix4: 将查询价格填入 RFQ 表格并在浏览器中打开 ────────────────────────
 
     def fill_rfq_prices(self, url: str, prices: list) -> dict:
-        """
-        将查询到的价格按顺序回写到 RFQ 页面中
-        id 匹配 cdSupplierResp_ctlXX_txtPrice 的 <input> 的 value 属性，
-        保存为本地临时 HTML 后用默认浏览器打开。
-
-        规则：
-        - 只修改 cdSupplierResp_ctlXX_txtPrice（XX = 01..99）的 value
-        - 不触碰 txtDiscount / txtLeadTime / txtQuantityAvailable /
-          __VIEWSTATE / __EVENTVALIDATION 等任何其他字段
-        - 价格统一保留两位小数（空值或无法解析时保持原 value 不变）
-
-        参数：
-            url    : 原始 RFQ 链接或本地 HTML 文件路径
-            prices : 与询价行顺序对应的价格列表（字符串，可含 $ 前缀）
-
-        返回：
-            {"ok": True/False, "path": "...", "error": "...", "filled": N}
-        """
         import os
         import re
         import tempfile
@@ -295,8 +301,6 @@ class API:
 
             soup = load_html(url.strip())
 
-            # ── 定位所有价格 input，按行号排序 ─────────────────────────────
-            # id 格式：cdSupplierResp_ctl01_txtPrice … cdSupplierResp_ctl25_txtPrice
             _ID_PAT = re.compile(
                 r'^cdSupplierResp_ctl(\d+)_txtPrice$', re.IGNORECASE
             )
@@ -317,22 +321,20 @@ class API:
                     ),
                 }
 
-            # 按行号（01, 02, …）升序排列，与询价行顺序一一对应
             price_inputs.sort(key=lambda x: x[0])
             logging.info(
                 f"[API] fill_rfq_prices: 找到 {len(price_inputs)} 个价格输入框，"
                 f"价格列表共 {len(prices)} 条"
             )
 
-            # ── 逐行写入 value ──────────────────────────────────────────────
             filled = 0
             for idx, (row_no, tag) in enumerate(price_inputs):
                 if idx >= len(prices):
-                    break  # 价格列表已用完，剩余保持原值
+                    break
 
                 raw = str(prices[idx]).replace('$', '').strip()
                 if not raw:
-                    continue  # 空价格 → 跳过，保持原值
+                    continue
 
                 try:
                     formatted = f"{float(raw):.2f}"
@@ -346,12 +348,10 @@ class API:
                 filled += 1
                 logging.debug(f"[API]   ctl{row_no:02d} → {formatted}")
 
-            # ── 保存到临时文件 ──────────────────────────────────────────────
             temp_path = os.path.join(tempfile.gettempdir(), 'rfq_filled.html')
             with open(temp_path, 'w', encoding='utf-8') as f:
                 f.write(str(soup))
 
-            # ── 用默认浏览器打开 ────────────────────────────────────────────
             file_url = 'file:///' + temp_path.replace('\\', '/')
             webbrowser.open(file_url)
 
