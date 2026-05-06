@@ -59,6 +59,7 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
   let _selIdx      = -1;
   let _rowH        = 72;
   let _headerNames = {};
+  let _lastRenderRange = { start: -1, end: -1 };
 
   // ── 列拖拽状态 ──
   let _dragSrcIdx  = null;
@@ -214,18 +215,27 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
   }
 
   // ── 虚拟滚动 ──
-  let _rafId = null;
-  const scheduleRender = () => {
+  let _rafId      = null;
+  let _forceRender = false;   // 数据变化时强制重绘，忽略 range 缓存
+  const scheduleRender = (force = false) => {
+    if (force) _forceRender = true;
     if (_rafId) return;
     _rafId = requestAnimationFrame(() => { _rafId = null; renderVisible(); });
   };
 
   function renderVisible() {
-    if (!_cols.length || !_rows.length) { tbody.innerHTML = ''; return; }
-    const st = el.scrollTop, vh = el.clientHeight || 500;
+    if (!_cols.length || !_rows.length) { tbody.innerHTML = ''; _lastRenderRange = { start: -1, end: -1 }; return; }
+    const st    = el.scrollTop;
+    const vh    = el.clientHeight || 500;
     const start = Math.max(0, Math.floor(st / _rowH) - BUFFER);
     const end   = Math.min(_rows.length, Math.ceil((st + vh) / _rowH) + BUFFER);
-    const frag  = document.createDocumentFragment();
+
+    // 若范围未变且不是强制刷新，跳过本次重绘，避免底部循环抖动
+    if (!_forceRender && start === _lastRenderRange.start && end === _lastRenderRange.end) return;
+    _forceRender = false;
+    _lastRenderRange = { start, end };
+
+    const frag = document.createDocumentFragment();
 
     if (start > 0) {
       const sp = document.createElement('tr');
@@ -304,16 +314,18 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
       } else if (key === 'rowData') {
         _rows = Array.isArray(value) ? value : [];
         _selIdx = -1;
-        scheduleRender();
+        _lastRenderRange = { start: -1, end: -1 };  // 强制下次重绘
+        scheduleRender(true);
       }
     },
     setRowHeight(px) {
       _rowH = Math.max(24, Math.min(300, +px));
-      scheduleRender();
+      _lastRenderRange = { start: -1, end: -1 };
+      scheduleRender(true);
     },
     setMatchIndices(indices) {
       _matchSet = new Set(indices);
-      scheduleRender();
+      scheduleRender(true);
     },
 
     // ── Fix1: 精确定位，计入 thead 固定高度，行居中显示 ──
@@ -374,6 +386,8 @@ function updateQueryResultGrid(cols, rows, colWidths, visibleColsOverride) {
     field: name, headerName: name,
     width: (colWidths && colWidths[name]) || DEFAULT_WIDTHS[name] || 110,
   }));
+  // 先清空旧行，再设列定义，再填新数据，保证全部行重新生成
+  queryGridApi.setGridOption('rowData', []);
   queryGridApi.setGridOption('columnDefs', colDefs);
   requestAnimationFrame(() => queryGridApi.setGridOption('rowData', rowData));
 }

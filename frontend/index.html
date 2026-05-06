@@ -25,9 +25,7 @@
     body { display: flex; flex-direction: column; background: #F2F2F7; }
 
     .top-bar {
-      background: rgba(255,255,255,0.78);
-      backdrop-filter: blur(20px) saturate(180%);
-      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      background: #FFFFFF;
       border-bottom: 0.5px solid rgba(0,0,0,0.12);
     }
 
@@ -37,11 +35,10 @@
     .tab-panel {
       position: absolute; inset: 0; display: flex; flex-direction: column;
       overflow: hidden; background: #F2F2F7;
-      transition: opacity 0.26s cubic-bezier(0.4,0,0.2,1),
-                  transform 0.26s cubic-bezier(0.4,0,0.2,1);
+      transition: opacity 0.18s ease;
     }
-    .tab-panel.panel-hidden  { opacity: 0; pointer-events: none; transform: translateY(8px); }
-    .tab-panel.panel-visible { opacity: 1; pointer-events: auto;  transform: translateY(0); }
+    .tab-panel.panel-hidden  { opacity: 0; pointer-events: none; }
+    .tab-panel.panel-visible { opacity: 1; pointer-events: auto; }
 
     #queryGrid, #priceListGrid {
       flex: 1 1 0; min-height: 0; width: 100%;
@@ -65,12 +62,10 @@
       white-space: nowrap; overflow: hidden;
       border-right: none;
       border-bottom: 0.5px solid rgba(0,0,0,0.12);
-      background: rgba(242,242,247,0.95);
+      background: #F2F2F7;
       color: #3C3C43CC;
       user-select: none; box-sizing: border-box;
       cursor: grab;
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
     }
     .sg-th:active { cursor: grabbing; }
     .sg-th-text { display: block; overflow: hidden; text-overflow: ellipsis; }
@@ -127,9 +122,7 @@
 
     .kw-dropdown {
       position: absolute; top: calc(100% + 6px); right: 0; z-index: 50;
-      background: rgba(255,255,255,0.92);
-      backdrop-filter: blur(20px) saturate(180%);
-      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      background: #FFFFFF;
       border: 0.5px solid rgba(0,0,0,0.1);
       border-radius: 16px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
@@ -154,18 +147,12 @@
       display: flex; align-items: center; justify-content: center;
       opacity: 0; pointer-events: none;
       background: rgba(15, 23, 42, 0);
-      backdrop-filter: blur(0px) saturate(100%);
-      -webkit-backdrop-filter: blur(0px) saturate(100%);
-      transition: opacity 0.2s ease 0.12s, background 0.2s ease 0.12s,
-                  backdrop-filter 0.2s ease 0.12s;
+      transition: opacity 0.2s ease 0.12s, background 0.2s ease 0.12s;
     }
     .modal-overlay--open {
       opacity: 1; pointer-events: auto;
       background: rgba(15, 23, 42, 0.45);
-      backdrop-filter: blur(7px) saturate(160%);
-      -webkit-backdrop-filter: blur(7px) saturate(160%);
-      transition: opacity 0.25s ease 0s, background 0.25s ease 0s,
-                  backdrop-filter 0.25s ease 0s;
+      transition: opacity 0.25s ease 0s, background 0.25s ease 0s;
     }
     .modal-card {
       opacity: 0; transform: translateY(32px) scale(0.9);
@@ -188,9 +175,7 @@
     .toast-box {
       position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
       z-index: 9999;
-      background: rgba(50,50,52,0.92);
-      backdrop-filter: blur(20px) saturate(180%);
-      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      background: #323234;
       color: #FFFFFF;
       padding: 12px 24px; border-radius: 99px;
       font-size: 15px; font-weight: 500; white-space: nowrap;
@@ -376,6 +361,13 @@
         <div class="toggle-thumb"></div>
       </div>
     </div>
+
+    <!-- ── 保存结果按钮（Seven Seas 时显示，向量检索右侧）── -->
+    <button x-show="company === 'Seven Seas'"
+            @click="saveResults()"
+            :disabled="!queryResults.length"
+            class="btn-slate"
+            x-text="t('save_results_btn')"></button>
     <!-- ───────────────────────────────────────────────── -->
 
     <!-- ── 追加识别（非 Seven Seas 时显示）── -->

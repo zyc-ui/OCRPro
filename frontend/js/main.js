@@ -122,6 +122,9 @@ const _I18N = {
     vector_off_msg:      '是否清除当前向量结果并使用本地匹配重新查询？\n\n• 点击「是」：关闭向量模式，用本地 TF-IDF 重新匹配\n• 点击「否」：保持当前向量结果不变',
     vector_off_yes:      '是，重新本地匹配',
     vector_off_no:       '否，保持现状',
+    save_results_btn:    '保存结果',
+    save_results_ok:     '✅ 已保存: ',
+    save_results_fail:   '保存失败: ',
   },
   en: {
     app_name:        'Seastar',
@@ -218,8 +221,12 @@ const _I18N = {
     vector_off_msg:      'Clear vector results and re-match using local TF-IDF?\n\n• Yes: switch to local matching\n• No: keep current vector results',
     vector_off_yes:      'Yes, re-match locally',
     vector_off_no:       'No, keep results',
+    save_results_btn:    'Save Results',
+    save_results_ok:     '✅ Saved: ',
+    save_results_fail:   'Save failed: ',
   },
 };
+
 
 function App() {
   return {
@@ -946,6 +953,20 @@ function App() {
         queryGridApi.setHeaderNames({});
       }
     },
+    async saveResults() {
+      if (!this.queryResults.length) return;
+      const visCols = this._lastQueryAllCols.length
+        ? this._lastQueryAllCols
+        : Object.keys(this.queryResults[0] || {});
+      try {
+        const r = await window.pywebview.api.save_results_csv(this.queryResults, visCols, this.company);
+        if (r.ok) this.showToast(this.t('save_results_ok') + r.path, 4000);
+        else       alert(this.t('save_results_fail') + r.error);
+      } catch (e) {
+        alert(this.t('save_results_fail') + String(e));
+      }
+    },
+
     async openDBUpdate() { await window.pywebview.api.open_db_update(); },
   };
 }

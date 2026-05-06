@@ -450,6 +450,35 @@ class API:
         except Exception as e:
             return {"ok": False, "path": "", "error": str(e)}
 
+    # ── 保存结果为 CSV ──────────────────────────────────────────────────────────
+
+    def save_results_csv(self, results: list, cols: list, company: str) -> dict:
+        import csv
+        import datetime
+        import os
+        import sys
+        try:
+            if getattr(sys, "frozen", False):
+                base_dir = os.path.dirname(sys.executable)
+            else:
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+            result_dir = os.path.join(base_dir, "Result")
+            os.makedirs(result_dir, exist_ok=True)
+            now = datetime.datetime.now()
+            safe_company = company.replace(" ", "_").replace("/", "-") if company else "result"
+            filename = f"{safe_company}_{now.strftime('%Y%m%d_%H%M%S')}.csv"
+            filepath = os.path.join(result_dir, filename)
+            with open(filepath, "w", newline="", encoding="utf-8-sig") as f:
+                writer = csv.writer(f)
+                writer.writerow(cols)
+                for row in results:
+                    writer.writerow([row.get(col, "") for col in cols])
+            logging.info(f"[API] save_results_csv: {filepath} ({len(results)} 行)")
+            return {"ok": True, "path": filepath}
+        except Exception as e:
+            logging.error(f"[API] save_results_csv 失败: {e}")
+            return {"ok": False, "error": str(e)}
+
     # ── 数据库更新 ──────────────────────────────────────────────────────────
 
     def open_db_update(self) -> None:
