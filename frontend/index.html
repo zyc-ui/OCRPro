@@ -27,7 +27,49 @@
     .top-bar {
       background: #FFFFFF;
       border-bottom: 0.5px solid rgba(0,0,0,0.12);
+      /* overflow: hidden 故意不加：自定义下拉需要溢出顶栏 */
+      transform: translateZ(0);
+      isolation: isolate;
     }
+
+    /* ── 自定义公司下拉（替换原生 <select>，避免 QWebEngine OS 弹出层渲染空白） ── */
+    .co-trigger {
+      display: inline-flex; align-items: center; justify-content: space-between;
+      gap: 4px; width: 144px;
+      padding: 3px 8px; font-size: 12px;
+      background: #FFFFFF; color: #374151;
+      border: 1px solid #e2e8f0; border-radius: 6px;
+      cursor: pointer; user-select: none; white-space: nowrap;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .co-trigger:hover  { border-color: #93c5fd; }
+    .co-trigger:focus  { outline: none; box-shadow: 0 0 0 2px rgba(59,130,246,.35); border-color: #60a5fa; }
+    .co-trigger .co-arrow {
+      width: 12px; height: 12px; flex-shrink: 0; color: #9ca3af;
+      transition: transform .15s;
+    }
+    .co-trigger.is-open .co-arrow { transform: rotate(180deg); }
+
+    .co-panel {
+      /* fixed 定位脱离所有 stacking context，不受 top-bar 的 transform/isolation 影响 */
+      position: fixed; z-index: 9990;
+      background: #FFFFFF;
+      border: 0.5px solid rgba(0,0,0,0.12);
+      border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.13), 0 2px 6px rgba(0,0,0,.07);
+      min-width: 160px; max-height: 280px;
+      overflow-y: auto; overflow-x: hidden;
+      padding: 4px 0;
+    }
+    .co-item {
+      padding: 6px 14px; font-size: 12px; cursor: pointer;
+      color: #374151; white-space: nowrap;
+      transition: background .1s;
+    }
+    .co-item:hover    { background: rgba(59,130,246,.08); color: #2563eb; }
+    .co-item.co-sel   { background: rgba(59,130,246,.1); color: #1d4ed8; font-weight: 600; }
+    .co-item.co-empty { color: #9ca3af; }
+    /* ────────────────────────────────────────────────────────────── */
 
     .content-wrapper {
       flex: 1; position: relative; overflow: hidden; min-height: 0;
@@ -43,6 +85,7 @@
     #queryGrid, #priceListGrid {
       flex: 1 1 0; min-height: 0; width: 100%;
       overflow: auto;
+      overflow-anchor: none;
       background: #FFFFFF;
       border: none;
       border-radius: 0;
@@ -110,6 +153,10 @@
     .sg-row.row-selected .sg-td  { background: rgba(0,122,255,0.14) !important; color: #007AFF !important; }
     .sg-row.row-not-found .sg-td { color: #FF3B30 !important; background: rgba(255,59,48,0.05) !important; }
     .sg-row.row-matched .sg-td   { background: rgba(255,204,0,0.15) !important; }
+    /* ── Local Vector Candidate View ─────────────────────────── */
+    .sg-row.row-customer .sg-td { background: rgba(255,149,0,0.30) !important; }
+    .sg-row.row-lv-cand .sg-td  { background: rgba(52,199,89,0.18) !important; }
+    .sg-row.row-best .sg-td     { box-shadow: inset 0 0 0 2px rgba(0,122,255,0.35); }
 
     input[type=range].rh-slider {
       -webkit-appearance: none; width: 80px; height: 4px;
@@ -216,6 +263,55 @@
     .btn-nav:active:not(:disabled) { transform: scale(0.9); }
     .btn-nav:disabled { opacity: 0.3; cursor: not-allowed; }
 
+    /* ── 本地向量检索按钮 ─────────────────────────────────────────── */
+    .btn-local-vector {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 12px 4px 10px;
+      font-size: 12px; font-weight: 600;
+      background: linear-gradient(135deg, #00C7BE, #0097A7);
+      color: white; border-radius: 99px;
+      border: none; outline: none; cursor: pointer;
+      transition: all .15s; user-select: none;
+      white-space: nowrap;
+    }
+    .btn-local-vector:hover  { filter: brightness(1.08); }
+    .btn-local-vector:active { transform: scale(0.95); opacity: 0.85; }
+    .btn-local-vector:disabled { opacity: 0.4; cursor: not-allowed; filter: none; transform: none; }
+    .btn-local-vector .lv-spinner {
+      width: 12px; height: 12px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.35);
+      border-top-color: #fff;
+      animation: spin-slow 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+    /* ── FullListUpdate 临时进度条 ─────────────────────────── */
+    .fulllist-progress {
+      display: inline-flex; align-items: center; gap: 6px;
+      width: 190px;
+      padding: 2px 8px;
+      border: 1px solid rgba(148,163,184,0.35);
+      border-radius: 999px;
+      background: rgba(248,250,252,0.92);
+    }
+    .fulllist-progress .fp-bar {
+      position: relative;
+      flex: 1;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(148,163,184,0.25);
+      overflow: hidden;
+    }
+    .fulllist-progress .fp-fill {
+      position: absolute; inset: 0 auto 0 0;
+      width: 0%;
+      background: linear-gradient(90deg, #3b82f6, #06b6d4);
+      border-radius: 999px;
+      transition: width .25s ease;
+    }
+    .fulllist-progress .fp-text {
+      font-size: 10px; color: #64748b; white-space: nowrap;
+      max-width: 95px; overflow: hidden; text-overflow: ellipsis;
+    }
     /* ── 向量检索 Toggle Switch ──────────────────────────────────── */
     .vector-toggle-wrap {
       display: flex; align-items: center; gap: 6px;
@@ -293,87 +389,174 @@
     <div class="w-px h-5 bg-slate-200 mx-1"></div>
 
     <label class="text-xs text-slate-400 font-medium whitespace-nowrap" x-text="t('company_label')"></label>
-    <select x-model="company" @change="onCompanyChange()"
-            class="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white text-slate-700
-                   focus:outline-none focus:ring-2 focus:ring-blue-400 w-36">
-      <option value="">-- Select --</option>
-      <template x-for="opt in companyOptions" :key="opt">
-        <option :value="opt" x-text="opt"></option>
+
+    <!-- 自定义公司下拉（纯 HTML/CSS，避免原生 select 在 QWebEngine 触发 OS 弹出层渲染空白） -->
+    <!--
+      x-teleport 方案：
+      top-bar 有 transform:translateZ(0)，会使其成为 position:fixed 子元素的包含块，
+      导致 z-index 无法穿透 content-wrapper。
+      用 x-teleport 把面板传送到 <body> 直接子节点，彻底脱离 top-bar 的 transform 影响。
+    -->
+    <div class="relative flex-shrink-0"
+         x-data="{
+           _open: false,
+           _panelTop: 0,
+           _panelLeft: 0,
+           _toggle() {
+             if (!this._open) {
+               const r = this.$refs.coTrigger.getBoundingClientRect();
+               this._panelTop  = r.bottom + 4;
+               this._panelLeft = r.left;
+             }
+             this._open = !this._open;
+           }
+         }"
+         @keydown.escape.window="_open = false">
+
+      <!-- 触发按钮 -->
+      <button type="button"
+              x-ref="coTrigger"
+              @click="_toggle()"
+              :class="['co-trigger', _open && 'is-open']">
+        <span class="truncate" x-text="company || '-- Select --'"></span>
+        <svg class="co-arrow" fill="none" stroke="currentColor"
+             viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+
+      <!-- x-teleport 到 body，脱离 top-bar transform 的包含块约束 -->
+      <template x-teleport="body">
+        <div>
+          <!-- 透明遮罩：捕获面板外任意区域的点击以关闭面板 -->
+          <div x-show="_open"
+               @click="_open = false"
+               style="display:none; position:fixed; inset:0; z-index:9989; cursor:default;">
+          </div>
+          <!-- 下拉面板（在 body 层，z-index 不受 top-bar stacking context 约束） -->
+          <div x-show="_open"
+               class="co-panel"
+               :style="`top:${_panelTop}px; left:${_panelLeft}px;`"
+               style="display:none">
+
+            <div @click="company = ''; onCompanyChange(); _open = false"
+                 :class="['co-item co-empty', company === '' && 'co-sel']">
+              -- Select --
+            </div>
+
+            <template x-for="opt in companyOptions" :key="opt">
+              <div @click="company = opt; onCompanyChange(); _open = false"
+                   :class="['co-item', company === opt && 'co-sel']"
+                   x-text="opt">
+              </div>
+            </template>
+          </div>
+        </div>
       </template>
-    </select>
+    </div>
 
     <div class="w-px h-5 bg-slate-200 mx-1"></div>
 
     <!-- ── OCR 识别按钮（非 Seven Seas 时显示）── -->
-    <button x-show="company !== 'Seven Seas'"
-            @click="startOCR(false)" :disabled="isScanning" class="btn-blue">
-      <span x-show="!isScanning" x-text="t('ocr_btn')"></span>
-      <span x-show="isScanning" class="flex items-center gap-1">
-        <svg class="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/>
-          <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-        </svg>
-        <span x-text="t('scanning')"></span>
-      </span>
-    </button>
+    <template x-if="company !== 'Seven Seas'">
+      <button @click="startOCR(false)" :disabled="isScanning" class="btn-blue">
+        <span x-show="!isScanning" x-text="t('ocr_btn')"></span>
+        <span x-show="isScanning" class="flex items-center gap-1">
+          <svg class="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/>
+            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+          <span x-text="t('scanning')"></span>
+        </span>
+      </button>
+    </template>
 
     <!-- ── 粘贴链接按钮（Seven Seas 时显示）── -->
-    <button x-show="company === 'Seven Seas'"
-            @click="openPasteLinkDialog()" :disabled="pasteLinkDlg.isParsing"
-            class="btn-rfq">
-      <span x-show="!pasteLinkDlg.isParsing" x-text="t('paste_link_btn')"></span>
-      <span x-show="pasteLinkDlg.isParsing" class="flex items-center gap-1">
-        <svg class="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/>
-          <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-        </svg>
-        <span x-text="t('parsing')"></span>
-      </span>
-    </button>
+    <template x-if="company === 'Seven Seas'">
+      <button @click="openPasteLinkDialog()" :disabled="pasteLinkDlg.isParsing"
+              class="btn-rfq">
+        <span x-show="!pasteLinkDlg.isParsing" x-text="t('paste_link_btn')"></span>
+        <span x-show="pasteLinkDlg.isParsing" class="flex items-center gap-1">
+          <svg class="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/>
+            <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+          <span x-text="t('parsing')"></span>
+        </span>
+      </button>
+    </template>
 
     <!-- ── 向量检索 Toggle（仅 Seven Seas 显示）── -->
-    <div x-show="company === 'Seven Seas'"
-         @click="!isVectorQuerying && onVectorToggle()"
-         :class="{
-           'vector-toggle-wrap': true,
-           'is-on':   vectorMode,
-           'is-busy': isVectorQuerying,
-         }"
-         :title="vectorMode ? t('vector_off_title') : t('vector_mode_label')"
-         style="cursor: pointer;">
+    <template x-if="company === 'Seven Seas'">
+      <div @click="!isVectorQuerying && onVectorToggle()"
+           :class="{
+             'vector-toggle-wrap': true,
+             'is-on':   vectorMode,
+             'is-busy': isVectorQuerying,
+           }"
+           :title="vectorMode ? t('vector_off_title') : t('vector_mode_label')"
+           style="cursor: pointer;">
 
-      <!-- 检索中：旋转动画；空闲：闪光图标 -->
-      <template x-if="isVectorQuerying">
-        <div class="vector-spinner"></div>
-      </template>
-      <template x-if="!isVectorQuerying">
-        <svg class="vector-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <!-- 向量/AI 图标（sparkle） -->
-          <path d="M12 2L9.5 9.5 2 12l7.5 2.5L12 22l2.5-7.5L22 12l-7.5-2.5z"/>
-        </svg>
-      </template>
+        <!-- 检索中：旋转动画；空闲：闪光图标 -->
+        <template x-if="isVectorQuerying">
+          <div class="vector-spinner"></div>
+        </template>
+        <template x-if="!isVectorQuerying">
+          <svg class="vector-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L9.5 9.5 2 12l7.5 2.5L12 22l2.5-7.5L22 12l-7.5-2.5z"/>
+          </svg>
+        </template>
 
-      <span class="vector-label" x-text="isVectorQuerying ? t('vector_querying') : t('vector_mode_label')"></span>
+        <span class="vector-label" x-text="isVectorQuerying ? t('vector_querying') : t('vector_mode_label')"></span>
 
-      <!-- Toggle 滑块 -->
-      <div :class="{ 'toggle-track': true, 'on': vectorMode, 'busy': isVectorQuerying }">
-        <div class="toggle-thumb"></div>
+        <!-- Toggle 滑块 -->
+        <div :class="{ 'toggle-track': true, 'on': vectorMode, 'busy': isVectorQuerying }">
+          <div class="toggle-thumb"></div>
+        </div>
       </div>
-    </div>
+    </template>
+
+    <!-- ── 本地向量检索按钮（Seven Seas 时显示，向量检索右侧）── -->
+    <template x-if="company === 'Seven Seas'">
+      <button @click="!isLocalVectorQuerying && runLocalVectorQuery()"
+              :disabled="isLocalVectorQuerying || !productItems.length"
+              class="btn-local-vector">
+        <template x-if="isLocalVectorQuerying">
+          <span class="flex items-center gap-1.5">
+            <span class="lv-spinner"></span>
+            <span x-text="t('local_vector_querying')"></span>
+          </span>
+        </template>
+        <template x-if="!isLocalVectorQuerying">
+          <span class="flex items-center gap-1.5">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2.2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <ellipse cx="12" cy="5" rx="9" ry="3"/>
+              <path d="M21 12c0 1.66-4.03 3-9 3S3 13.66 3 12"/>
+              <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/>
+            </svg>
+            <span x-text="t('local_vector_btn')"></span>
+          </span>
+        </template>
+      </button>
+    </template>
 
     <!-- ── 保存结果按钮（Seven Seas 时显示，向量检索右侧）── -->
-    <button x-show="company === 'Seven Seas'"
-            @click="saveResults()"
-            :disabled="!queryResults.length"
-            class="btn-slate"
-            x-text="t('save_results_btn')"></button>
+    <template x-if="company === 'Seven Seas'">
+      <button @click="saveResults()"
+              :disabled="!queryResults.length"
+              class="btn-slate"
+              x-text="t('save_results_btn')"></button>
+    </template>
     <!-- ───────────────────────────────────────────────── -->
 
     <!-- ── 追加识别（非 Seven Seas 时显示）── -->
-    <button x-show="company !== 'Seven Seas'"
-            @click="startOCR(true)" :disabled="isScanning" class="btn-slate"
-            x-text="t('append_ocr')"></button>
+    <template x-if="company !== 'Seven Seas'">
+      <button @click="startOCR(true)" :disabled="isScanning" class="btn-slate"
+              x-text="t('append_ocr')"></button>
+    </template>
 
     <button @click="queryPrices()" :disabled="isQuerying || !productItems.length" class="btn-blue">
       <span x-show="!isQuerying" x-text="t('query_price')"></span>
@@ -381,16 +564,18 @@
     </button>
 
     <!-- ── 复制表格（非 Seven Seas）/ Finish（Seven Seas）── -->
-    <button x-show="company !== 'Seven Seas'"
-            @click="openExportDialog()" :disabled="!queryResults.length"
-            class="btn-slate"
-            x-text="t('copy_table')"></button>
+    <template x-if="company !== 'Seven Seas'">
+      <button @click="openExportDialog()" :disabled="!queryResults.length"
+              class="btn-slate"
+              x-text="t('copy_table')"></button>
+    </template>
 
-    <button x-show="company === 'Seven Seas'"
-            @click="finishRFQ()"
-            :disabled="!queryResults.length || !_rfqUrl"
-            class="btn-finish"
-            x-text="t('finish_btn')"></button>
+    <template x-if="company === 'Seven Seas'">
+      <button @click="finishRFQ()"
+              :disabled="!queryResults.length || !_rfqUrl"
+              class="btn-finish"
+              x-text="t('finish_btn')"></button>
+    </template>
 
     <button @click="clearAll()" class="btn-ghost text-red-400 hover:text-red-500 hover:bg-red-50" x-text="t('clear')"></button>
 
@@ -405,6 +590,12 @@
     <div class="flex-1"></div>
 
     <button @click="openDBUpdate()" class="btn-ghost text-slate-400 text-xs" x-text="t('fulllist_btn')"></button>
+    <div x-show="fullListProgress.show" class="fulllist-progress">
+      <div class="fp-bar">
+        <div class="fp-fill" :style="`width:${fullListProgress.percent}%`"></div>
+      </div>
+      <span class="fp-text" x-text="fullListProgress.text"></span>
+    </div>
     <button @click="toggleLang()"
             class="text-xs font-semibold px-2 py-1 rounded border border-blue-300
                    text-blue-500 hover:bg-blue-50 ml-1"
@@ -425,6 +616,18 @@
         <path d="M12 2L9.5 9.5 2 12l7.5 2.5L12 22l2.5-7.5L22 12l-7.5-2.5z"/>
       </svg>
       <span x-text="t('vector_mode_label')"></span>
+    </span>
+    <!-- 本地向量模式状态标签 -->
+    <span x-show="localVectorMode"
+          class="ml-2 flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5
+                 bg-[#00C7BE]/10 text-[#0097A7] text-[11px] font-semibold rounded-full">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <ellipse cx="12" cy="5" rx="9" ry="3"/>
+        <path d="M21 12c0 1.66-4.03 3-9 3S3 13.66 3 12"/>
+        <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/>
+      </svg>
+      <span x-text="t('local_vector_mode_label')"></span>
     </span>
   </div>
 
@@ -490,6 +693,15 @@
 
         <div class="w-px h-5 bg-slate-200"></div>
 
+        <label class="flex items-center gap-1 cursor-pointer flex-shrink-0 select-none"
+               x-show="plKeywords.length > 0">
+          <input type="checkbox"
+                 x-model="plHideUnmatched"
+                 @change="_doSearch()"
+                 class="h-3.5 w-3.5 accent-blue-500"/>
+          <span class="text-xs text-slate-600 whitespace-nowrap" x-text="t('pl_hide_unmatched')"></span>
+        </label>
+
         <div class="relative" x-show="plKeywords.length > 0">
           <button @click="plKwOpen = !plKwOpen"
                   class="btn-slate flex items-center gap-1 whitespace-nowrap">
@@ -530,7 +742,7 @@
               <span x-text="t('kw_selected')"></span>
               <span class="text-blue-500 font-medium mx-1" x-text="plKwSel.length"></span>
               <span x-text="t('kw_sep')"></span>
-              · <span x-text="plKwSel.join(' + ')"></span>
+              · <span x-text="plKwAndLabel()"></span>
             </div>
           </div>
         </div>

@@ -301,6 +301,9 @@ def find_best_matches(
 
     logger.info(f"[Matcher] Step1 候选行: {len(candidates)} 行")
 
+    # 提前建立对象 id → db_rows 原始索引的映射，供 Step2/3/兜底共用
+    id_map = {id(row): i for i, row in enumerate(db_rows)}
+
     # ── Step 2：详情列参数命中计数 ───────────────────────────────────────────
     step2_results = _step2_param_match(customer_desc, candidates, top_k)
 
@@ -309,8 +312,6 @@ def find_best_matches(
             f"[Matcher] Step2 命中 {len(step2_results)} 行，"
             f"最高命中数={step2_results[0][1]}"
         )
-        # 将候选子集内索引映射回 db_rows 原始索引
-        id_map = {id(row): i for i, row in enumerate(db_rows)}
         mapped = []
         for sub_idx, hits, row in step2_results:
             orig = id_map.get(id(row), sub_idx)
@@ -323,7 +324,6 @@ def find_best_matches(
     step3 = _step3_offer_match(customer_desc, candidates, top_k, min_score)
 
     if step3:
-        id_map = {id(row): i for i, row in enumerate(db_rows)}
         return [(id_map.get(id(row), sub_idx), score, row)
                 for sub_idx, score, row in step3]
 

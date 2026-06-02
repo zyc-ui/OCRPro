@@ -1,5 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
 import os
+from PyInstaller.utils.hooks import (
+    collect_all,
+    collect_dynamic_libs,
+    collect_submodules,
+    copy_metadata,
+)
 
 
 # ── 可配置目录 ─────────────────────────────────────────────
@@ -24,6 +30,38 @@ def collect_tree(src_dir: str, dst_root: str):
 
 # ── 资源收集 ───────────────────────────────────────────────
 frontend_datas = collect_tree(os.path.join(PROJECT_ROOT, 'frontend'), 'frontend')
+extra_binaries = []
+extra_datas = []
+vector_hiddenimports = []
+
+# bge-m3 / sentence-transformers 运行时依赖（tokenizer 配置、模型卡片等）
+for _pkg in ('sentence_transformers', 'transformers', 'tokenizers', 'huggingface_hub'):
+    try:
+        _d, _b, _h = collect_all(_pkg)
+        extra_datas += _d
+        extra_binaries += _b
+        vector_hiddenimports += _h
+        print(f"[INFO] collect_all({_pkg}): {len(_d)} datas, {len(_b)} binaries, {len(_h)} hidden")
+    except Exception as e:
+        print(f"[WARN] collect_all({_pkg}) 失败: {e}")
+        try:
+            extra_datas += copy_metadata(_pkg)
+        except Exception as e2:
+            print(f"[WARN] copy_metadata({_pkg}) 失败: {e2}")
+
+try:
+    import faiss
+
+    faiss_dir = os.path.dirname(faiss.__file__)
+    faiss_parent = os.path.dirname(faiss_dir)
+    faiss_cpu_libs_dir = os.path.join(faiss_parent, 'faiss_cpu.libs')
+
+    # faiss 主包的动态库
+    extra_binaries += collect_dynamic_libs('faiss')
+    # pip 的 faiss-cpu wheel 常把依赖 DLL 放在 faiss_cpu.libs
+    extra_binaries += collect_tree(faiss_cpu_libs_dir, 'faiss_cpu.libs')
+except Exception as e:
+    print(f"[WARN] 收集 faiss 动态库失败，可能导致运行时缺少 DLL: {e}")
 
 if os.path.isdir(TESSERACT_DIR):
     # 目标结构: Tesseract/...
@@ -37,13 +75,22 @@ else:
 a = Analysis(
     ['app.py'],
     pathex=['.'],
-    binaries=[],
+    binaries=extra_binaries,
     datas=[
         ('database_data.db', '.'),
+        ('products_vector.index', '.'),
+        ('products_meta.pkl', '.'),
         ('images/app_icon.ico', 'images'),
         ('images/seastarEngineLogo.png', 'images'),
-    ] + frontend_datas + tesseract_datas,
+    ] + frontend_datas + tesseract_datas + extra_datas,
     hiddenimports=[
+        # FullListUpdate 运行时动态导入模块（必须显式声明）
+        'DatabaseUpdate',
+        'build_product_vectordb',
+        'local_vector_matcher',
+        'matcher',
+        'vector_matcher',
+        'Rfq_quotation_tool',
         'webview',
         'webview.platforms.edgechromium',
         'webview.platforms.qt',
@@ -67,13 +114,29 @@ a = Analysis(
         'PIL._tkinter_finder',
         'pytesseract',
         'openpyxl',
+        'numpy',
+        'faiss',
+        'sentence_transformers',
+        'transformers',
+        'tokenizers',
+        'huggingface_hub',
+        'safetensors',
+        'regex',
+        'torch',
+        'sklearn',
+        'scipy',
+        'pandas',
+        'anthropic',
+        'tqdm',
+        'joblib',
+        'threadpoolctl',
         'sqlite3',
         'threading',
         'textwrap',
         're',
         'traceback',
         'logging',
-    ],
+    ] + collect_submodules('jaraco') + collect_submodules('anthropic') + vector_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -85,24 +148,17 @@ a = Analysis(
         'webview.platforms.winforms',
         'webview.platforms.edgechromium',
         'matplotlib',
-        'numpy',
-        'pandas',
-        'scipy',
         'IPython',
         'jupyter',
         'notebook',
         'pytest',
-        'setuptools',
         # 环境里可能存在但本项目不需要的重型 AI 依赖（避免 hooks 扫描）
-        'torch',
         'torchvision',
         'torchaudio',
         'tensorflow',
         'tensorflow_estimator',
         'keras',
-        'transformers',
         'onnxruntime',
-        'sklearn',
         'cv2',
         'nltk',
     ],
@@ -117,7 +173,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='UMIHOSHI',
+    name='Aero',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -133,5 +189,5 @@ coll = COLLECT(
     strip=False,
     upx=False,
     upx_exclude=[],
-    name='UMIHOSHI',
+    name='Aero',
 )

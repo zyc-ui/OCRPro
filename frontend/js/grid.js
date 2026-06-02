@@ -49,6 +49,7 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
   const thead    = document.createElement('thead');
   thead.className = 'sg-thead';
   const tbody    = document.createElement('tbody');
+  tbody.style.overflowAnchor = 'none';
   table.append(colgroup, thead, tbody);
   el.appendChild(table);
 
@@ -60,6 +61,7 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
   let _rowH        = 72;
   let _headerNames = {};
   let _lastRenderRange = { start: -1, end: -1 };
+  let _lastSt          = -1;
 
   // ── 列拖拽状态 ──
   let _dragSrcIdx  = null;
@@ -224,15 +226,21 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
   };
 
   function renderVisible() {
-    if (!_cols.length || !_rows.length) { tbody.innerHTML = ''; _lastRenderRange = { start: -1, end: -1 }; return; }
+    if (!_cols.length || !_rows.length) {
+      tbody.replaceChildren();
+      _lastRenderRange = { start: -1, end: -1 };
+      _lastSt = -1;
+      return;
+    }
     const st    = el.scrollTop;
     const vh    = el.clientHeight || 500;
     const start = Math.max(0, Math.floor(st / _rowH) - BUFFER);
     const end   = Math.min(_rows.length, Math.ceil((st + vh) / _rowH) + BUFFER);
 
-    // 若范围未变且不是强制刷新，跳过本次重绘，避免底部循环抖动
-    if (!_forceRender && start === _lastRenderRange.start && end === _lastRenderRange.end) return;
+    // scrollTop 未变且渲染范围未变时跳过，彻底断开底部抖动的正反馈循环
+    if (!_forceRender && st === _lastSt && start === _lastRenderRange.start && end === _lastRenderRange.end) return;
     _forceRender = false;
+    _lastSt = st;
     _lastRenderRange = { start, end };
 
     const frag = document.createDocumentFragment();
@@ -251,8 +259,8 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
       sp.style.height = (tail * _rowH) + 'px';
       frag.appendChild(sp);
     }
-    tbody.innerHTML = '';
-    tbody.appendChild(frag);
+    // replaceChildren 原子性替换：避免 innerHTML='' 瞬间高度归零触发 scroll 补偿事件
+    tbody.replaceChildren(frag);
   }
 
   function buildRow(row, i) {
@@ -297,6 +305,10 @@ function createGrid(containerId, { onRowSelected, onCellDoubleClicked, onRowDoub
     if (i === _selIdx)               c += ' row-selected';
     if (_matchSet.has(i))            c += ' row-matched';
     if (row?.['U8代码'] === '未找到') c += ' row-not-found';
+    if (row?.__rowType === 'customer')     c += ' row-customer';
+    if (row?.__rowType === 'lv_candidate') c += ' row-lv-cand';
+    if (row?.__rowType === 'kw_extra')     c += ' row-kw-extra';
+    if (row?.__best)                        c += ' row-best';
     return c;
   }
 
@@ -439,33 +451,78 @@ function updatePriceListGrid(cols, rows, colWidths) {
   });
 }
 
+function showPriceListFull() {
+  if (!priceListGridApi) return;
+  priceListGridApi.setGridOption('rowData', _plData);
+  priceListGridApi.setMatchIndices([]);
+  _matchIdx = [];
+  _currentMatchPos = 0;
+}
+
+function showPriceListView(viewRows) {
+  if (!priceListGridApi) return;
+  const rows = Array.isArray(viewRows) ? viewRows : [];
+  priceListGridApi.setGridOption('rowData', rows);
+  priceListGridApi.setMatchIndices([]);
+  _matchIdx = [];
+  _currentMatchPos = 0;
+}
+
+function getPriceListFullData() { return _plData; }
+function getPriceListCols() { return _plCols; }
+
 
 // ══════════════════════════════════════════════════════════
 // 价目表搜索 / 定位
 // ══════════════════════════════════════════════════════════
-const SCORE_W = { '描述':3, '详情':3, '报价':3, '备注1':2, '备注2':2 };
 
-function searchPriceList(keywords) {
-  if (!priceListGridApi || !_plData.length) return 0;
-  _matchIdx = [];
-  _currentMatchPos = 0;   // Fix5: 重置翻页位置
-  if (!keywords || !keywords.length) { priceListGridApi.setMatchIndices([]); return 0; }
-  const reList = keywords.map(kw =>
-    new RegExp(kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'));
-  _plData.forEach((row, i) => {
-    let score = 0;
-    _plCols.forEach(col => {
-      const cell = row[col] || '';
-      if (!cell) return;
-      const w = SCORE_W[col] || 1;
-      reList.forEach(re => { re.lastIndex = 0; score += ((cell.match(re) || []).length) * w; });
-    });
-    if (score > 0) _matchIdx.push(i);
+/** 行内是否包含全部关键词（不区分大小写，任意列命中即可） */
+function _rowMatchesAllKeywords(row, keywords) {
+  return keywords.every(kw => {
+    const needle = String(kw).toUpperCase();
+    if (!needle) return true;
+    return _plCols.some(col =>
+      String(row[col] ?? '').toUpperCase().includes(needle)
+    );
   });
-  priceListGridApi.setMatchIndices(_matchIdx);
-  if (_matchIdx.length) priceListGridApi.scrollToIndex(_matchIdx[0]);
-  return _matchIdx.length;
 }
+
+/**
+ * @param {string[]} keywords
+ * @param {boolean} hideUnmatched  true=仅显示命中行；false=全表+高亮命中行
+ */
+function searchPriceList(keywords, hideUnmatched = false) {
+  if (!priceListGridApi || !_plData.length) return 0;
+  _currentMatchPos = 0;
+
+  if (!keywords || !keywords.length) {
+    priceListGridApi.setGridOption('rowData', _plData);
+    priceListGridApi.setMatchIndices([]);
+    _matchIdx = [];
+    return 0;
+  }
+
+  const matchedInFull = [];
+  _plData.forEach((row, i) => {
+    if (_rowMatchesAllKeywords(row, keywords)) matchedInFull.push(i);
+  });
+
+  if (hideUnmatched) {
+    const filtered = matchedInFull.map(i => _plData[i]);
+    priceListGridApi.setGridOption('rowData', filtered);
+    priceListGridApi.setMatchIndices([]);
+    _matchIdx = filtered.length ? filtered.map((_, i) => i) : [];
+  } else {
+    priceListGridApi.setGridOption('rowData', _plData);
+    priceListGridApi.setMatchIndices(matchedInFull);
+    _matchIdx = matchedInFull;
+  }
+
+  if (_matchIdx.length) priceListGridApi.scrollToIndex(_matchIdx[0]);
+  return matchedInFull.length;
+}
+
+function getPriceListRowCount() { return _plData.length; }
 
 // ── Fix2: 精确定位 — 优先 IMPA/U8 精确匹配，再按代码列包含匹配 ──
 function locatePriceList(keyword) {

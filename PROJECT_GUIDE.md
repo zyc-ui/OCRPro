@@ -1,7 +1,7 @@
 # UMIHOSHI / Seastar — 项目说明书
 
 > **用途**：供 Claude 新会话快速建立上下文，在最少读取文件的情况下定位修改点。  
-> **最后更新**：2026-05
+> **最后更新**：2026-05（FullListUpdate 自动建库 + 顶栏临时进度条）
 
 ---
 
@@ -29,7 +29,7 @@
 | 公司 | 获取询价方式 | 匹配方式 | 专有功能 |
 |------|------------|---------|---------|
 | 非 SevenSeas（SINWA SGP、Anchor Marine 等）| OCR 截图 | 本地 TF-IDF | 复制表格、保存 .eml |
-| SevenSeas | 粘贴 RFQ 链接（URL/HTML）| 本地 TF-IDF **或** 向量检索（Voyage+Qdrant）| Finish 回填价格、保存结果 CSV |
+| SevenSeas | 粘贴 RFQ 链接（URL/HTML）| 本地 TF-IDF **或** 向量检索（Voyage+Qdrant）**或** 本地向量检索（FAISS+bge-m3）| Finish 回填价格、保存结果 CSV |
 
 ---
 
@@ -49,6 +49,7 @@
 │  └──┬──────────┬──────────┬─────────┘   │
 │     │          │          │              │
 │  database.py  matcher.py  vector_matcher.py
+│  local_vector_matcher.py               │
 │  ocr_engine.py Rfq_quotation_tool.py    │
 │  DatabaseUpdate.py  config.py           │
 │               │                         │
@@ -94,7 +95,8 @@
 | `get_config()` | 返回公司列表、列宽、FL_DISPLAY、数据库状态 |
 | `get_price_list(company)` | 读取完整价目表（根据公司选对应价格列） |
 | `query_prices(items, company)` | 批量本地TF-IDF匹配，返回 {cols, rows} |
-| `query_prices_vector(items, company)` | 批量向量检索匹配（SevenSeas专用），返回同格式 |
+| `query_prices_vector(items, company)` | 批量向量检索匹配（SevenSeas专用），返回同格式（Voyage+Qdrant） |
+| `query_prices_local_vector(items, company)` | 批量本地向量匹配（SevenSeas专用，FAISS+bge-m3），返回 `{cols, rows, topk}`；`topk` 为每条询价的 Top-20 候选行列表，用于价目表候选视图 |
 | `query_single(code, desc, qty, ...)` | 单条代码精确查询（编辑行后重查） |
 | `parse_rfq(url)` | 解析 SevenSeas RFQ 页面，返回询价条目 |
 | `fill_rfq_prices(url, prices)` | 把价格写入 RFQ HTML 并在浏览器打开 |
@@ -102,12 +104,12 @@
 | `start_ocr()` | 启动截图+OCR，结果通过 JS CustomEvent 回传 |
 | `copy_html_to_clipboard(html)` | 把 HTML 表格写入 Windows 剪贴板 |
 | `save_eml(html, plain)` | 保存 .eml 邮件文件 |
-| `open_db_update()` | 打开文件选择器，导入 Excel 到数据库 |
+| `open_db_update()` | 打开文件选择器，导入 Excel 到数据库，并自动执行“清洗 → 向量化 → 替换向量库”；过程中向前端推送进度条 |
 | `global_search(keyword)` | 跨表关键词搜索（调试用） |
 
 **关键设计原则**：
-- `query_prices` 和 `query_prices_vector` 返回完全相同的 `{cols, rows}` 格式，前端无感切换
-- 向量检索使用 `item["desc"]`（客户描述）作为输入，**不使用客户代码**
+- `query_prices`、`query_prices_vector`、`query_prices_local_vector` 返回完全相同的 `{cols, rows}` 格式，前端无感切换
+- 所有向量检索均使用 `item["desc"]`（客户描述）作为输入，**不使用客户代码**
 - 价格列格式统一为 `$数字`（两位小数）
 
 ---
@@ -132,6 +134,36 @@
 - **Step 3**：Step2 无结果时，用 TF-IDF 对"报价"列做兜底相似度匹配
 - 入口：`find_best_matches(desc, db_rows, top_k, min_score)`
 - 缓存：`clear_cache()` 在数据库更新后调用
+
+---
+
+#### `local_vector_matcher.py` — 本地向量检索引擎（FAISS + bge-m3）⭐ SevenSeas专用
+**核心设计**：完全离线，无需外部 API，根据客户描述做语义+参数精准匹配。
+
+| 函数 | 说明 |
+|------|------|
+| `batch_match_local(items, company)` | 批量本地向量匹配，返回 (cols, rows)，每条取 Top1 |
+| `batch_match_local_topk(items, company, top_k)` | ⭐ 主入口：同时返回 (cols, rows, topk)；topk 为每条询价对应的 Top-K 候选行列表，供价目表候选视图展示 |
+| `_search_one(query_vec, query_desc)` | FAISS Top-K 检索 → 参数重排 → 返回最优候选 (payload, score) |
+| `_search_topk(query_vec, query_desc, top_k)` | FAISS Top-K 检索 → 参数重排 → 返回按综合分降序的 Top-K 候选列表 |
+| `_embed_texts(texts)` | 批量文本 → 归一化 float32 向量（bge-m3） |
+| `_extract_params(text)` | 正则提取电压/功率/安培/IP等级等参数 token |
+| `_param_score(query_params, cand_text)` | 参数命中率计算 [0,1] |
+| `_meta_to_fl_row(item, score, ...)` | products_meta.pkl payload → FL_DISPLAY 键名字典 |
+| `_ensure_loaded()` | 延迟单例加载（模型/索引/元数据各只加载一次） |
+
+**文件依赖**：
+- `products_vector.index` — FAISS 精确索引（IndexFlatIP，1024维）；开发时在项目根，打包后默认在 `_internal\`，FullListUpdate 后可出现在 exe 同级
+- `products_meta.pkl` — 产品元数据（与索引行号一一对应）
+- bge-m3 模型 — 开发默认 `E:/bge-m3-model/`；分发版由 `build.bat` 复制到 `resource/bge-m3-model/`（详见 §3.4）
+
+**两阶段评分**（综合分 = 语义分×0.65 + 参数命中率×0.35）：
+1. FAISS Top-20 语义候选
+2. 对候选文本提取电压/功率/尺寸等参数，计算命中率重排
+
+**依赖安装**：`pip install sentence-transformers faiss-cpu numpy`
+
+**首次调用耗时**：约 30~60s（加载 2GB 模型），后续调用复用内存单例，速度极快。
 
 ---
 
@@ -191,6 +223,18 @@ high_price / medium_price → 高档/中档价
 
 ---
 
+#### `build_product_vectordb.py` — FullListUpdate 建库流水线（清洗 + 向量化）
+- 支持读取 `.xlsx/.xls/.xlsm/.csv`，并对表头做 `strip()` 标准化，兼容 `High Price` / `Medium Price` 等常见列名格式
+- `run_pipeline(input_path, temp_dir, output_dir)`：按“数据清洗 → 向量化 → 替换向量库”顺序执行
+- 中间文件固定写入 `temp/`：
+  - `cleaned_pricelist.csv`
+  - `vectordb_ready.jsonl`
+  - `products_vector.index`（临时）
+  - `products_meta.pkl`（临时）
+- 成功后将索引与元数据复制到程序根目录，替换运行中的向量库文件
+
+---
+
 #### `category_router.py` — 已废弃，保留兼容性
 - 原有硬编码规则已移至 `matcher.py` 动态处理
 - 始终返回 `"GENERAL"` 和全量行，不做实际过滤
@@ -226,13 +270,17 @@ high_price / medium_price → 高档/中档价
 |------|------|------|
 | `company` | string | 当前选择的公司名 |
 | `productItems` | Array | 询价条目列表，每项 `{item_no, code, desc, qty, unit}` |
-| `queryResults` | Array | 查询结果列表，每项为列名→值的字典 |
-| `vectorMode` | bool | 是否启用向量检索（仅 SevenSeas） |
-| `isVectorQuerying` | bool | 向量检索进行中标志 |
+| `queryResults` | Array | 查询结果列表，每项为列名→值的字典；本地向量模式下每项额外挂载 `__lvTopk`（Top-20 候选行列表） |
+| `vectorMode` | bool | 是否启用 Voyage+Qdrant 向量检索（仅 SevenSeas） |
+| `isVectorQuerying` | bool | Voyage 向量检索进行中标志 |
+| `localVectorMode` | bool | 最后一次查询是否使用本地向量（FAISS+bge-m3） |
+| `isLocalVectorQuerying` | bool | 本地向量检索进行中标志 |
+| `_lvCtx` | object\|null | 本地向量候选视图上下文（双击价格查询行进入时设置）：`{rowIdx, customer, topk, bestKey}` |
 | `_rfqUrl` | string | 当前解析的 RFQ 链接（Finish 功能需要） |
 | `_rfqHeaderMap` | object | 列名翻译映射（SevenSeas 模式下替换中文列头） |
 | `_lastQueryAllCols` | Array | 最后一次查询的完整列名列表 |
 | `vectorConfirmDlg.open` | bool | 关闭向量检索确认弹窗 |
+| `fullListProgress` | object | FullListUpdate 顶栏临时进度条状态：`{show, percent, text}` |
 
 **关键方法**：
 
@@ -240,11 +288,15 @@ high_price / medium_price → 高档/中档价
 |------|---------|------|
 | `init()` | 页面加载 | 获取配置、初始化表格、注册 watcher、移除启动遮罩 |
 | `onVectorToggle()` | 点击向量检索 Toggle | OFF→ON：直接调向量查询；ON→OFF：弹确认弹窗 |
-| `_runVectorQuery()` | 向量检索核心 | 调 `query_prices_vector`，全量替换 queryResults |
+| `_runVectorQuery()` | Voyage 向量检索核心 | 调 `query_prices_vector`，全量替换 queryResults，绑定 `__lvTopk` |
+| `runLocalVectorQuery()` | 点击本地向量检索按钮 / 粘贴 RFQ 链接 | 调 `query_prices_local_vector`，全量替换 queryResults，绑定 `__lvTopk`，设置 `localVectorMode=true` |
+| `openPriceListForRow(rowIdx, rowData)` | 双击价格查询行（非编辑列） | 检测 `localVectorMode` + `__lvTopk`，决定走候选视图或旧定位模式；设置 `_lvCtx` 并跳转价目表 |
+| `_renderLocalVectorPriceListView()` | 进入价目表候选视图 / 关键词变化 | 构建 `[客户行, 命中绿色行, 补充白色行]` 并调 `showPriceListView()` 渲染 |
 | `queryPrices()` | 本地查询 | 调 `query_prices`，全量替换 queryResults |
-| `submitPasteLink()` | 确认粘贴链接 | 解析 RFQ → 更新 productItems → 按当前模式查询 |
+| `submitPasteLink()` | 确认粘贴链接 | 解析 RFQ → 更新 productItems → Seven Seas 默认调 `runLocalVectorQuery()` |
 | `saveResults()` | 点击保存结果 | 调 `save_results_csv`，保存到 Result 文件夹 |
 | `finishRFQ()` | 点击 Finish | 提取价格列 → 调 `fill_rfq_prices` 回填到网页 |
+| `_onFullListUpdateProgress(payload)` | 后端推送 FullListUpdate 进度时 | 更新顶栏临时进度条显示（短文案 + 百分比） |
 | `_dismissOverlay()` | init 末尾 | 淡出启动遮罩 |
 
 **i18n**：`_I18N.zh` / `_I18N.en` 两份翻译字典，`t(key)` / `tf(key, {n})` 取值。
@@ -289,6 +341,62 @@ high_price / medium_price → 高档/中档价
 | `images/seastarEngineLogo.png` | 品牌 Logo |
 | `UMIHOSHI.spec` | PyInstaller 打包配置 |
 | `build.bat` | Windows 一键打包脚本 |
+
+---
+
+### 3.4 Windows 打包与分发（bge-m3 外置）
+
+**产物目录**：`dist\Aero\`（可执行文件名为 `Aero.exe`）
+
+**一键打包**（在项目根目录执行）：
+
+```bat
+build.bat
+```
+
+打包前需在本机准备好 bge-m3 模型目录（约 2.2 GB），满足以下任一条件即可：
+
+| 方式 | 路径 |
+|------|------|
+| 项目内 | `bge-m3-model\` |
+| 环境变量 | `BGE_M3_MODEL_DIR` 指向模型根目录 |
+| 开发机默认 | `E:\bge-m3-model\` |
+
+`build.bat` 会执行 PyInstaller（`UMIHOSHI.spec`），完成后将模型复制到分发目录的 `resource\bge-m3-model\`（**不打进 exe**，避免安装包过大）。
+
+**分发目录结构**（用户解压后）：
+
+```
+dist\Aero\
+  Aero.exe
+  resource\bge-m3-model\          ← BAAI/bge-m3（build.bat 复制，可整目录替换升级模型）
+  _internal\
+    database_data.db
+    products_vector.index           ← FAISS 索引（首次安装默认位置）
+    products_meta.pkl
+    frontend\
+    sentence_transformers\          ← 检索/建库运行时依赖（随 PyInstaller 打入）
+    faiss\ ...
+  temp\                             ← FullListUpdate 中间产物（运行后自动创建）
+  Result\                           ← CSV 导出（运行后自动创建）
+```
+
+**运行时路径解析**（与 `config.get_db_path()` 策略一致）：
+
+| 资源 | 打包后查找顺序 |
+|------|----------------|
+| SQLite | `Aero.exe` 同级 → `_internal\` |
+| FAISS 索引 / 元数据 | `Aero.exe` 同级 → `_internal\`（FullListUpdate 建库后写在 exe 同级，便于热替换） |
+| bge-m3 模型 | 环境变量 `BGE_M3_MODEL_DIR` → `resource\bge-m3-model` → `bge-m3-model` → `_internal\bge-m3-model` → `E:\bge-m3-model`（开发兜底） |
+
+**打包进 exe 的内容**（`UMIHOSHI.spec`）：`app.py` 依赖链、`frontend/`、`database_data.db`、向量索引/元数据、`sentence-transformers` / `transformers` / `faiss-cpu` / `torch` 等；**不打包** bge-m3 权重文件。
+
+**可选 OCR**：设置环境变量 `TESSERACT_DIR` 指向 Tesseract 安装目录，或在打包前将 Tesseract 放入 `third_party\Tesseract`（否则 spec 会跳过 OCR 内嵌，仅影响截图识别，不影响向量功能）。
+
+**用户侧能力**：
+
+- **本地向量搜索**：SevenSeas 模式 →「本地向量检索」按钮（`query_prices_local_vector`）
+- **重建向量库**：FullListUpdate 导入 Excel → 自动清洗 + bge-m3 向量化 → 替换 `products_vector.index` / `products_meta.pkl`
 
 ---
 
@@ -386,14 +494,22 @@ vector_matcher.batch_match(items, company)
 
 ### 想改"导入 Excel 到数据库"
 1. `DatabaseUpdate.py` — 读取规则、字段处理
-2. `config.py` — 确认列名映射是否需要同步更新
+2. `build_product_vectordb.py` — FullListUpdate 建库流水线、清洗列名映射、中间文件输出
+3. `api.py` 的 `open_db_update()` — 前端进度推送、导入与建库串联逻辑
+4. `config.py` — 确认列名映射是否需要同步更新
 
 ### 想改"打包/部署"
-1. `UMIHOSHI.spec` — PyInstaller 配置（资源文件、隐藏导入）
-2. `build.bat` — 构建脚本
+1. `UMIHOSHI.spec` — PyInstaller 配置（资源文件、隐藏导入、bge-m3 相关 collect_all）
+2. `build.bat` — 构建脚本、模型外置复制与产物校验
+3. 参阅 **§3.4 Windows 打包与分发** — 分发目录结构与运行时路径约定
 
 ### 想改"向量检索服务配置"
 1. `vector_matcher.py` 顶部常量区 — API Key、Qdrant URL、Collection 名
+
+### 想改"本地向量检索配置/逻辑"
+1. `local_vector_matcher.py` 顶部常量区 — `MODEL_PATH`、`INDEX_PATH`、`META_PATH`、权重常量
+2. `local_vector_matcher.py` 的 `_extract_params()` — 调整参数提取正则表达式
+3. `local_vector_matcher.py` 的 `_search_one()` — 调整语义权重/参数权重（`SEMANTIC_WEIGHT` / `PARAM_WEIGHT`）
 
 ---
 
@@ -406,7 +522,9 @@ vector_matcher.batch_match(items, company)
 所有从数据库取出的价格在显示层统一格式化为 `$数字.两位小数`。`database.py` 的 `query_product()` 在 `PRICE_COL_START_IDX` 之后的列自动加 `$` 前缀。
 
 ### 7.3 SevenSeas 模式的特殊行为
-- 顶栏按钮组完全不同（`<template x-if>` 控制，非 `x-show`）：避免隐藏元素的 reflow
+- 顶栏按钮组完全不同（`<template x-if>` 控制，非 `x-show`）：避免隐藏元素的 reflow。**严禁**对依赖 `company` 状态切换的顶栏元素使用 `x-show`，否则点击 `<select>` 下拉时 QWebEngine 会触发 layout pass，令所有 `display:none` 的元素短暂参与 flex 布局，导致顶栏内容溢出并在页面右下方出现白色空白区域。
+- `.top-bar` 已设置 `transform: translateZ(0)` + `isolation: isolate` 作为额外防护。**注意**：`.top-bar` 不设置 `overflow: hidden`，因为自定义下拉面板需要溢出顶栏显示。
+- **原生 `<select>` 已替换为纯 HTML/Alpine.js 自定义下拉**（`.co-trigger` / `.co-panel` CSS 类）：在 QWebEngine 中，原生 `<select>` 打开时 OS 接管渲染弹出列表，会使 Chromium 将页面某区域标记为待重绘，导致空白残留；自定义下拉完全由 HTML 渲染引擎处理，从根本上消除该问题。
 - `_rfqHeaderMap` 激活时，表格列头显示英文（SevenSeas Code / Item Description / Req Qty）
 - 切换公司到非 SevenSeas 时，`_rfqHeaderMap` 和 `_rfqUrl` 自动清空
 
@@ -422,6 +540,16 @@ vector_matcher.batch_match(items, company)
 ### 7.7 Modal 弹窗不使用 backdrop-filter 动画
 所有弹窗的 `backdrop-filter` 值预设为静态值（不在 `transition` 中包含它），避免 Chromium 在动画 blur 变化时触发整层重绘，解决弹窗打开/关闭时的页面闪烁问题。
 
+### 7.8 FullListUpdate 自动建库约定
+- FullListUpdate 不再只做 Excel→SQLite 导入；导入成功后会自动执行本地向量库重建（清洗 + FAISS 向量化 + 替换索引）
+- 中间产物必须保留在程序目录 `temp/`，用于排障与复用，不应写到随机临时目录
+- 向量库替换后会调用 `local_vector_matcher.reload_index()` 清除索引缓存，确保后续检索使用新库
+
+### 7.9 FullListUpdate 顶栏临时进度条
+- 入口位于 `FullListUpdate` 按钮右侧，仅在导入/建库期间显示，完成或失败后自动隐藏
+- 进度文案为短文案（不展示底层日志）：`正在读取Excel`、`正在导入Excel`、`正在清洗数据`、`正在向量化`、`正在替换向量库`、`建库完成`
+- 后端通过 `api.py` 的 `evaluate_js` 推送 `{percent, message, done, hide}`，前端由 `main.js::_onFullListUpdateProgress()` 渲染
+
 ---
 
 ## 8. 依赖安装清单
@@ -436,8 +564,14 @@ pip install pytesseract pillow
 # RFQ 解析
 pip install requests beautifulsoup4 lxml tabulate
 
-# 向量检索（SevenSeas 功能）
+# 向量检索（SevenSeas 功能 — Voyage+Qdrant）
 pip install qdrant-client requests
+
+# 本地向量检索（SevenSeas 功能 — FAISS+bge-m3；开发机模型见 E:/bge-m3-model/，分发见 §3.4）
+pip install sentence-transformers faiss-cpu numpy
+
+# FullListUpdate 建库流水线（清洗阶段）
+pip install pandas anthropic tqdm
 
 # 导出（Windows）
 pip install pywin32
@@ -457,6 +591,11 @@ pip install pyinstaller
 | 向量检索 | Voyage AI + Qdrant，SevenSeas 专用 Toggle，关闭时确认弹窗 |
 | 稳定性修复 | 启动遮罩、表格抖动（overflow-anchor）、顶栏闪烁（isolation）、Modal 闪烁（静态 backdrop-filter）|
 | 保存结果 | Seven Seas 模式下 CSV 保存至 Result/ 目录 |
+| 本地向量检索 | FAISS + BAAI/bge-m3，SevenSeas 专用，语义+参数精准匹配（两阶段重排），新增 `local_vector_matcher.py` + `api.query_prices_local_vector()` + 青绿色本地向量按钮 |
+| 顶栏下拉空白修复 | ① 顶栏所有 company 条件按钮改为 `<template x-if>`（原 `x-show`）；② 原生 `<select>` 替换为纯 HTML/Alpine.js 自定义下拉（`.co-trigger`/`.co-panel`），从根本上消除 QWebEngine OS 弹出层导致的空白蔓延问题 |
+| 本地向量候选视图 | 双击价格查询行跳转价目表后，展示"客户信息行（橙色）+ Top-20 向量候选行（绿色）+ 关键词补充行（白色）"候选视图，取代旧的全量定位模式；关键词筛选时隐藏未命中绿色行；`overflow-anchor:none` + `replaceChildren` + `_lastSt` 三重修复虚拟滚动底部抖动 |
+| FullListUpdate 自动建库 | `open_db_update()` 串联 Excel 导入与向量库重建；`build_product_vectordb.py` 新增可调用 `run_pipeline()`；中间文件落盘 `temp/` 并自动替换 `products_vector.index/products_meta.pkl` |
+| FullListUpdate 进度条 | 顶栏在 `FullListUpdate` 按钮右侧新增临时进度条；后端阶段进度实时推送，前端展示短文案与百分比，结束后自动隐藏 |
 
 ---
 

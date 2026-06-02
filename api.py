@@ -221,6 +221,38 @@ class API:
             logging.error(f"[API] query_prices_vector 失败: {e}", exc_info=True)
             return {"error": str(e), "cols": [], "rows": []}
 
+    # ── 价格查询（本地 FAISS + BGE-M3 向量检索）────────────────────────────────
+
+    def query_prices_local_vector(self, items: list, company_name: str) -> dict:
+        """
+        使用本地 BAAI/bge-m3 + FAISS 向量检索进行批量匹配。
+        接口格式与 query_prices / query_prices_vector 完全一致。
+        根据客户描述与向量库中的商品描述/详情进行语义+参数精准匹配。
+        """
+        logging.info(
+            f"[API] query_prices_local_vector: {len(items)} 条, 公司={company_name!r}"
+        )
+        try:
+            from local_vector_matcher import batch_match_local_topk
+            cols, rows, topk = batch_match_local_topk(items, company=company_name, top_k=20)
+            logging.info(f"[API] 本地向量匹配完成: {len(rows)} 行 × {len(cols)} 列")
+            return {"cols": cols, "rows": rows, "topk": topk}
+        except ImportError as e:
+            msg = (
+                "本地向量检索依赖未安装，请运行：\n"
+                "  pip install sentence-transformers faiss-cpu numpy\n"
+                f"详情：{e}"
+            )
+            logging.error(f"[API] query_prices_local_vector ImportError: {e}")
+            return {"error": msg, "cols": [], "rows": [], "topk": []}
+        except FileNotFoundError as e:
+            msg = str(e)
+            logging.error(f"[API] query_prices_local_vector FileNotFoundError: {e}")
+            return {"error": msg, "cols": [], "rows": [], "topk": []}
+        except Exception as e:
+            logging.error(f"[API] query_prices_local_vector 失败: {e}", exc_info=True)
+            return {"error": str(e), "cols": [], "rows": [], "topk": []}
+
     # ── 单条重新匹配 ─────────────────────────────────────────────────────────
 
     def query_single_desc_first(
@@ -482,31 +514,128 @@ class API:
     # ── 数据库更新 ──────────────────────────────────────────────────────────
 
     def open_db_update(self) -> None:
+        def _push_progress(percent: int, message: str, done: bool = False, hide: bool = False):
+            if not self._window:
+                return
+            payload = {
+                "percent": int(percent),
+                "message": message,
+                "done": bool(done),
+                "hide": bool(hide),
+            }
+            js = (
+                "window.appState && window.appState._onFullListUpdateProgress && "
+                f"window.appState._onFullListUpdateProgress({json.dumps(payload, ensure_ascii=False)});"
+            )
+            try:
+                self._window.evaluate_js(js)
+            except Exception:
+                pass
+
+        def _pipeline_status(msg: str) -> tuple[int, str]:
+            if "阶段一：数据清洗" in msg:
+                return 50, "正在清洗数据"
+            if "[2/5]" in msg:
+                return 58, "正在清洗数据"
+            if "[3/5]" in msg:
+                return 66, "正在清洗数据"
+            if "[4/5]" in msg:
+                return 72, "正在清洗数据"
+            if "[5/5]" in msg:
+                return 78, "正在清洗数据"
+            if "阶段二：向量化" in msg:
+                return 82, "正在向量化"
+            if "[1/4]" in msg:
+                return 85, "正在向量化"
+            if "[2/4]" in msg:
+                return 88, "正在向量化"
+            if "[3/4]" in msg:
+                return 92, "正在向量化"
+            if "[4/4]" in msg:
+                return 96, "正在写入向量索引"
+            if "向量库已替换" in msg:
+                return 99, "正在替换向量库"
+            return 80, "正在构建向量库"
+
         file_result = self._window.create_file_dialog(
             webview.OPEN_DIALOG,
             file_types=("Excel Files (*.xlsx;*.xls;*.xlsm)", "All files (*.*)")
         )
         if not file_result:
+            _push_progress(0, "已取消", done=True, hide=True)
             return
         filepath = file_result[0] if isinstance(file_result, (list, tuple)) else file_result
 
         def _run():
+            import os
+            import sys
             try:
                 from DatabaseUpdate import import_excel_to_db
                 from matcher import clear_cache
+
+                _push_progress(2, "正在读取Excel")
+
                 def _status(msg: str):
+                    percent, text = _pipeline_status(msg)
+                    _push_progress(percent, text)
                     try:
                         self._window.evaluate_js(
                             f"console.log('DB Import:', {json.dumps(msg)})"
                         )
                     except Exception:
                         pass
-                table_name, row_count = import_excel_to_db(filepath, status_callback=_status)
+
+                def _import_status(msg: str):
+                    _push_progress(10, "正在导入Excel")
+                    try:
+                        self._window.evaluate_js(
+                            f"console.log('DB Import:', {json.dumps(msg)})"
+                        )
+                    except Exception:
+                        pass
+
+                def _import_progress(p: int):
+                    overall = 5 + int(max(0, min(100, p)) * 0.40)
+                    _push_progress(overall, "正在导入Excel")
+
+                table_name, row_count = import_excel_to_db(
+                    filepath,
+                    status_callback=_import_status,
+                    progress_callback=_import_progress,
+                )
                 self._pl_rows_cache = []
                 self._pl_cols_cache = []
                 clear_cache()
-                success_msg = (f"✅ 导入成功！\n表名：{table_name}\n共导入 {row_count} 行数据\n\n"
-                               "请重新点击「价目表」标签以刷新数据。")
+
+                if getattr(sys, "frozen", False):
+                    base_dir = os.path.dirname(sys.executable)
+                else:
+                    base_dir = os.path.dirname(os.path.abspath(__file__))
+                temp_dir = os.path.join(base_dir, "temp")
+
+                _push_progress(45, "正在构建向量库")
+                _status("数据库导入完成，开始构建向量库…")
+                from build_product_vectordb import run_pipeline
+                vec_result = run_pipeline(
+                    input_path=filepath,
+                    temp_dir=temp_dir,
+                    output_dir=base_dir,
+                    status_callback=_status,
+                )
+
+                try:
+                    from local_vector_matcher import reload_index
+                    reload_index()
+                except Exception as e:
+                    logging.warning(f"[DB Update] 向量库缓存刷新失败: {e}")
+
+                _push_progress(100, "建库完成", done=True)
+                success_msg = (
+                    f"✅ 导入成功！\n表名：{table_name}\n共导入 {row_count} 行数据\n\n"
+                    f"✅ 向量库已更新：{vec_result['vector_count']} 条向量\n"
+                    f"中间文件目录：{vec_result['temp_dir']}\n\n"
+                    "请重新点击「价目表」标签以刷新数据。"
+                )
                 self._window.evaluate_js(
                     "window.appState && (window.appState._plLoadedFor = null);"
                     f"alert({json.dumps(success_msg)});"
@@ -514,6 +643,7 @@ class API:
             except Exception as e:
                 error_msg = f"❌ 导入失败：{str(e)}"
                 logging.error(f"[DB Update] {error_msg}")
+                _push_progress(100, "导入或建库失败", done=True)
                 try:
                     self._window.evaluate_js(f"alert({json.dumps(error_msg)})")
                 except Exception:

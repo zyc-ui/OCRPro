@@ -7,6 +7,7 @@ app.py — 应用启动入口
 import logging
 import os
 import sys
+import ctypes
 from pathlib import Path
 
 import webview
@@ -53,7 +54,23 @@ def _resolve_gui_backend() -> str | None:
     return raw
 
 
+def _set_windows_app_user_model_id() -> None:
+    """
+    修复 Windows 任务栏图标偶发不显示问题。
+    未设置 AppUserModelID 时，系统可能按宿主进程分组，导致图标异常。
+    """
+    if not sys.platform.startswith("win"):
+        return
+    try:
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            "Aero.OCRPro.DesktopApp"
+        )
+    except Exception:
+        logging.exception("设置 AppUserModelID 失败")
+
+
 def main() -> None:
+    _set_windows_app_user_model_id()
     api   = API()
     # DevTools 默认永远关闭；如需调试请临时将 False 改为 True
     debug = False

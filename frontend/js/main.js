@@ -7,6 +7,11 @@ const _ALWAYS_SHOW = new Set([
   'Anchor Marine','RMS Marine','Fuji Trading','Con Lash',
 ]);
 
+// Price Query 面板「显示列」勾选默认值（每次启动）
+const _DEFAULT_VISIBLE_COLS = new Set([
+  'Brand Sort', 'IMPA代码', '详情', '报价', '备注1', '库存量', 'DATE', '单位',
+]);
+
 // 列名中→英翻译表（表头切换语言时使用）
 const _COL_HEADERS_EN = {
   '商品代码':        'Item Code',
@@ -54,6 +59,8 @@ const _I18N = {
     clear_all:       '清除全部',
     kw_selected:     '已选',
     kw_sep:          '个',
+    kw_and:          ' 且 ',
+    pl_hide_unmatched: '隐藏未命中行',
     edit_title:      '编辑商品信息',
     lbl_item_no:     'Item NO.',
     lbl_code:        '商品代码',
@@ -98,6 +105,7 @@ const _I18N = {
     placeholder_sel: '双击选择',
     lang_toggle:     'EN',
     fulllist_btn:    'FullListUpdate',
+    fulllist_progress_ready: '准备中…',
     // ── RFQ 粘贴链接 ──
     paste_link_btn:   '粘贴链接',
     paste_link_title: '粘贴询价链接',
@@ -125,6 +133,13 @@ const _I18N = {
     save_results_btn:    '保存结果',
     save_results_ok:     '✅ 已保存: ',
     save_results_fail:   '保存失败: ',
+    // ── 本地向量检索 ──
+    local_vector_btn:          '本地向量检索',
+    local_vector_querying:     '本地检索中…',
+    local_vector_loading:      '模型加载中…',
+    local_vector_success:      '✅ 本地向量检索完成，已更新 {n} 条结果',
+    local_vector_err:          '本地向量检索失败：',
+    local_vector_mode_label:   '本地向量',
   },
   en: {
     app_name:        'Seastar',
@@ -153,6 +168,8 @@ const _I18N = {
     clear_all:       'Clear All',
     kw_selected:     'Selected',
     kw_sep:          '',
+    kw_and:          ' & ',
+    pl_hide_unmatched: 'Hide non-matching',
     edit_title:      'Edit Item Info',
     lbl_item_no:     'Item NO.',
     lbl_code:        'Item Code',
@@ -197,6 +214,7 @@ const _I18N = {
     placeholder_sel: 'Dbl-click to select',
     lang_toggle:     '中',
     fulllist_btn:    'FullListUpdate',
+    fulllist_progress_ready: 'Preparing…',
     // ── RFQ paste link ──
     paste_link_btn:   'Paste Link',
     paste_link_title: 'Paste RFQ Link',
@@ -224,6 +242,13 @@ const _I18N = {
     save_results_btn:    'Save Results',
     save_results_ok:     '✅ Saved: ',
     save_results_fail:   'Save failed: ',
+    // ── Local Vector Search ──
+    local_vector_btn:          'Local Vector',
+    local_vector_querying:     'Local searching…',
+    local_vector_loading:      'Loading model…',
+    local_vector_success:      '✅ Local vector search done, {n} results updated',
+    local_vector_err:          'Local vector search failed: ',
+    local_vector_mode_label:   'Local Vector',
   },
 };
 
@@ -259,10 +284,12 @@ function App() {
     _plLoadedFor:     null,
     _plGridInited:    false,
     priceListCallback: null,
+    _lvCtx:           null, // 本地向量候选视图上下文（双击价格查询行进入）
 
     plKeywords:  [],
     plKwSel:     [],
     plKwOpen:    false,
+    plHideUnmatched: true,  // 默认隐藏与关键词无关的行
 
     // ── RFQ 相关 ──
     _rfqHeaderMap: null,
@@ -279,8 +306,13 @@ function App() {
       open:  false,
     },
 
+    // ── 本地向量检索 ─────────────────────────────────────────────
+    localVectorMode:        false,  // 最后一次查询是否使用本地向量
+    isLocalVectorQuerying:  false,  // 本地向量检索进行中
+
     // ── Toast ──
     toast: { show: false, msg: '', _timer: null },
+    fullListProgress: { show: false, percent: 0, text: '' },
 
     editDlg:       { open:false, rowIndex:-1, item_no:'', code:'', desc:'', qty:'', unit:'' },
     exportDlg:     { open:false },
@@ -312,6 +344,29 @@ function App() {
       clearTimeout(this.toast._timer);
       this.toast._timer = setTimeout(() => { this.toast.show = false; }, ms);
     },
+    _setFullListProgress(percent, text, show = true) {
+      const p = Math.max(0, Math.min(100, Number(percent) || 0));
+      this.fullListProgress.percent = p;
+      this.fullListProgress.text = text || this.t('fulllist_progress_ready');
+      this.fullListProgress.show = !!show;
+    },
+    _hideFullListProgress(delayMs = 0) {
+      setTimeout(() => {
+        this.fullListProgress.show = false;
+      }, Math.max(0, delayMs || 0));
+    },
+    _onFullListUpdateProgress(payload = {}) {
+      const p = Number(payload.percent);
+      const msg = String(payload.message || '');
+      const done = !!payload.done;
+      const hide = !!payload.hide;
+      this._setFullListProgress(
+        Number.isFinite(p) ? p : this.fullListProgress.percent,
+        msg || this.fullListProgress.text || this.t('fulllist_progress_ready'),
+        !hide
+      );
+      if (done || hide) this._hideFullListProgress(done ? 1500 : 0);
+    },
 
     // ══════════════════════════════════════════════
     // 初始化
@@ -326,7 +381,9 @@ function App() {
       this.colWidths      = cfg.col_widths;
 
       const vis = {};
-      cfg.fl_display.slice(0, 25).forEach(col => { vis[col] = true; });
+      cfg.fl_display.slice(0, 22).forEach(col => {
+        vis[col] = _DEFAULT_VISIBLE_COLS.has(col);
+      });
       this.colVisibility = vis;
       this.infoColNames  = cfg.fl_display.slice(0, 22);
 
@@ -351,6 +408,8 @@ function App() {
             await new Promise(r => requestAnimationFrame(r));
           }
           await this._loadPriceList();
+          // 若来自本地向量检索的双击，加载完成后立即渲染候选视图（覆盖全量数据）
+          if (this._lvCtx) this._renderLocalVectorPriceListView();
         }
       });
     },
@@ -399,6 +458,7 @@ function App() {
       if (this.vectorMode) {
         this.vectorMode = false;
       }
+      this.localVectorMode = false;
 
       if (this.company !== 'Seven Seas' && this._rfqHeaderMap) {
         this._rfqHeaderMap = null;
@@ -487,6 +547,13 @@ function App() {
           return obj;
         });
 
+        // 绑定本地向量 Top20 候选（用于价目表候选视图）
+        if (Array.isArray(d.topk) && d.topk.length === this.queryResults.length) {
+          this.queryResults.forEach((r, i) => { r.__lvTopk = Array.isArray(d.topk[i]) ? d.topk[i] : []; });
+        } else {
+          this.queryResults.forEach(r => { r.__lvTopk = []; });
+        }
+
         const visCols = this._visibleQueryCols(d.cols);
         updateQueryResultGrid(d.cols, d.rows, this.colWidths, visCols);
         if (queryGridApi) queryGridApi.setRowHeight(this.rowHeight);
@@ -504,6 +571,80 @@ function App() {
         this.vectorMode = false;
       } finally {
         this.isVectorQuerying = false;
+      }
+    },
+
+    // ══════════════════════════════════════════════
+    // 本地向量检索（FAISS + BGE-M3，离线）
+    // ══════════════════════════════════════════════
+
+    /**
+     * 点击「本地向量检索」按钮的入口。
+     * 调用 query_prices_local_vector，以客户描述 + 语义+参数重排匹配向量库。
+     * 首次调用需要加载 2GB BGE-M3 模型，耗时约 30~60s，请耐心等待。
+     */
+    async runLocalVectorQuery() {
+      if (!this.productItems.length) { alert(this.t('no_items_alert')); return; }
+      if (!this.company)             { alert(this.t('no_company'));      return; }
+
+      this.isLocalVectorQuerying = true;
+      this.localVectorMode       = false;
+
+      // 首次调用提示用户加载时间较长
+      this.showToast(this.t('local_vector_loading'), 8000);
+
+      try {
+        const d = await window.pywebview.api.query_prices_local_vector(
+          this.productItems, this.company
+        );
+
+        if (d.error) {
+          alert(this.t('local_vector_err') + d.error);
+          return;
+        }
+        if (!d?.cols?.length || !d?.rows) {
+          alert(this.t('query_fmt_err'));
+          return;
+        }
+        if (!d.rows.length) {
+          alert(this.t('query_no_data'));
+          return;
+        }
+
+        this._lastQueryAllCols = d.cols;
+        this.queryResults = d.rows.map(row => {
+          const obj = {};
+          d.cols.forEach((c, i) => { obj[c] = row[i] || ''; });
+          return obj;
+        });
+
+        // 绑定本地向量 Top20 候选（用于价目表候选视图）
+        if (Array.isArray(d.topk) && d.topk.length === this.queryResults.length) {
+          this.queryResults.forEach((r, i) => { r.__lvTopk = Array.isArray(d.topk[i]) ? d.topk[i] : []; });
+        } else {
+          this.queryResults.forEach(r => { r.__lvTopk = []; });
+        }
+
+        const visCols = this._visibleQueryCols(d.cols);
+        updateQueryResultGrid(d.cols, d.rows, this.colWidths, visCols);
+        if (queryGridApi) queryGridApi.setRowHeight(this.rowHeight);
+
+        // 保持 RFQ 表头映射（如果有的话）
+        if (queryGridApi && this._rfqHeaderMap) {
+          queryGridApi.setHeaderNames(this._rfqHeaderMap);
+        }
+
+        this.localVectorMode = true;
+        // 关闭 Voyage 向量模式标签（两种模式互斥标记）
+        this.vectorMode      = false;
+
+        this.showToast(this.tf('local_vector_success', { n: d.rows.length }), 4000);
+
+      } catch (e) {
+        console.error('[LocalVector]', e);
+        alert(this.t('local_vector_err') + String(e));
+      } finally {
+        this.isLocalVectorQuerying = false;
       }
     },
 
@@ -605,8 +746,10 @@ function App() {
         this.pasteLinkDlg.open = false;
         this.showToast(this.tf('rfq_toast', { n: this.productItems.length }), 4000);
 
-        // 按当前模式查询（向量模式 or 本地模式）
-        if (this.vectorMode) {
+        // Seven Seas：粘贴 RFQ 后默认本地向量检索；其他公司按向量/本地模式
+        if (this.company === 'Seven Seas') {
+          await this.runLocalVectorQuery();
+        } else if (this.vectorMode) {
           await this._runVectorQuery();
         } else {
           await this.queryPrices();
@@ -764,20 +907,115 @@ function App() {
 
     onPriceSearch() { this._doSearch(); },
     clearPriceSearch() { this.priceSearch = ''; this._doSearch(); },
-    _doSearch() {
+
+    _getAllPriceKeywords() {
       const raw = this.priceSearch.trim();
       const barKws = raw
         ? raw.split(/[,;\s，；]+/).map(k => k.trim().toUpperCase()).filter(Boolean)
         : [];
       const kwKws = this.plKwSel.map(k => k.toUpperCase());
-      const all   = [...new Set([...barKws, ...kwKws])];
-      const n     = searchPriceList(all);
+      return [...new Set([...barKws, ...kwKws])];
+    },
+
+    _rowMatchesAllKeywords(row, cols, keywords) {
+      if (!keywords?.length) return true;
+      const upper = keywords.map(k => String(k).toUpperCase()).filter(Boolean);
+      return upper.every(kw => cols.some(c => String(row?.[c] ?? '').toUpperCase().includes(kw)));
+    },
+
+    _renderLocalVectorPriceListView() {
+      if (!this._lvCtx) return;
+      const cols = (typeof getPriceListCols === 'function') ? getPriceListCols() : [];
+      const full = (typeof getPriceListFullData === 'function') ? getPriceListFullData() : [];
+      const keywords = this._getAllPriceKeywords();
+
+      // 将客户原始信息映射到价目表列名（价目表 grid 无 '商品代码'/'客户描述' 等固定列）
+      const c = this._lvCtx.customer;
+      const customerRow = {
+        ...c,
+        'U8代码':  c['商品代码'] || '',
+        '描述':    c['客户描述'] || '',
+        '库存量':  c['数量']    || '',
+        '单位':    c['UOM']     || '',
+        __rowType: 'customer',
+      };
+
+      const topk = this._lvCtx.topk.slice(0, 20)
+        .sort((a, b) => (+b._local_score || 0) - (+a._local_score || 0))
+        .map((r, i) => ({ ...r, __rowType: 'lv_candidate', __best: i === 0 }));
+
+      let hit = [], rest = topk;
+      if (keywords.length && cols.length) {
+        hit  = topk.filter(r => this._rowMatchesAllKeywords(r, cols, keywords));
+        rest = topk.filter(r => !hit.includes(r));
+      }
+
+      const extra = [];
+      if (keywords.length && cols.length && Array.isArray(full) && full.length) {
+        const usedKey = new Set(
+          topk.map(r => `${(r['U8代码'] || '').toString().trim()}|${(r['IMPA代码'] || '').toString().trim()}|${(r['描述'] || '').toString().trim()}`)
+        );
+        for (const r of full) {
+          if (!this._rowMatchesAllKeywords(r, cols, keywords)) continue;
+          const k = `${(r['U8代码'] || '').toString().trim()}|${(r['IMPA代码'] || '').toString().trim()}|${(r['描述'] || '').toString().trim()}`;
+          if (usedKey.has(k)) continue;
+          usedKey.add(k);
+          extra.push({ ...r, __rowType: 'kw_extra' });
+          if (extra.length >= 60) break;
+        }
+      }
+
+      // 有关键词：只显示命中的绿色行 + 全量补充行，非命中的绿色行隐藏
+      // 无关键词：显示全部 20 条绿色候选行
+      const viewRows = keywords.length
+        ? [customerRow, ...hit, ...extra]
+        : [customerRow, ...topk];
+      if (typeof showPriceListView === 'function') showPriceListView(viewRows);
+
+      if (keywords.length) {
+        this.priceStats = this.tf('matched', { n: hit.length + extra.length });
+      } else {
+        this.priceStats = this.tf('total', { n: topk.length });
+      }
+    },
+
+    _doSearch() {
+      // 本地向量候选视图：plHideUnmatched=true → 候选视图；false → 展开全量并定位最匹配行
+      if (this._lvCtx) {
+        if (this.plHideUnmatched) {
+          this._renderLocalVectorPriceListView();
+        } else {
+          if (typeof showPriceListFull === 'function') showPriceListFull();
+          const kw = (this._lvCtx.bestKey || '').replace('未找到', '').trim();
+          if (kw) setTimeout(() => locatePriceList(kw), 80);
+          const total = typeof getPriceListRowCount === 'function' ? getPriceListRowCount() : 0;
+          this.priceStats = this.tf('total', { n: total });
+        }
+        return;
+      }
+
+      const all = this._getAllPriceKeywords();
+      const n   = searchPriceList(all, this.plHideUnmatched);
+      const total = typeof getPriceListRowCount === 'function' ? getPriceListRowCount() : 0;
       this._priceMatchTotal = n;
       this._priceMatchPos   = 0;
-      if (n)              this.priceStats = this.tf('matched', { n }) + (n > 1 ? `  (1/${n})` : '');
-      else if (all.length) this.priceStats = this.t('no_match');
-      else if (this._plLoadedFor != null) this.priceStats = this.tf('total', { n: _plData.length });
-      else               this.priceStats = '';
+      if (n) {
+        let stat = this.tf('matched', { n });
+        if (this.plHideUnmatched && all.length && total > n) {
+          stat += ` / ${this.tf('total', { n: total })}`;
+        }
+        this.priceStats = stat + (n > 1 ? `  (1/${n})` : '');
+      } else if (all.length) {
+        this.priceStats = this.t('no_match');
+      } else if (this._plLoadedFor != null) {
+        this.priceStats = this.tf('total', { n: total });
+      } else {
+        this.priceStats = '';
+      }
+    },
+
+    plKwAndLabel() {
+      return this.plKwSel.join(this.t('kw_and'));
     },
 
     togglePlKw(kw) {
@@ -813,27 +1051,75 @@ function App() {
     // ══════════════════════════════════════════════
     async openPriceListForRow(rowIdx, rowData) {
       this.selectedRowIdx = rowIdx;
-      const src = `${rowData['商品代码'] || ''} ${rowData['客户描述'] || ''}`;
-      const seen = new Set();
-      this.plKeywords = [];
-      src.split(/[\s,，;；]+/).forEach(w => {
-        w = w.trim();
-        if (w.length > 1 && !seen.has(w.toUpperCase())) {
-          seen.add(w.toUpperCase());
-          this.plKeywords.push(w);
-        }
-      });
-      this.plKwSel = []; this.plKwOpen = false; this.priceSearch = '';
+      // __lvTopk 挂在 this.queryResults[rowIdx] 上（updateQueryResultGrid 会重建 grid 内部行对象，不共享引用）
+      const _qrTopk = this.queryResults[rowIdx]?.__lvTopk;
+      // 只要是本地向量模式且 __lvTopk 已初始化（含空数组），均走候选视图
+      const isLocalVector = !!this.localVectorMode && Array.isArray(_qrTopk);
+
+      if (isLocalVector) {
+        const topk = _qrTopk
+          .slice()
+          .sort((a, b) => (+b._local_score || 0) - (+a._local_score || 0))
+          .slice(0, 20);
+
+        const best = topk[0] || null;
+        const bestKey = (best?.['U8代码'] || best?.['IMPA代码'] || '').toString().trim();
+
+        this._lvCtx = {
+          rowIdx,
+          customer: {
+            'Item NO.': rowData['Item NO.'] || '',
+            '商品代码': rowData['商品代码'] || '',
+            '客户描述': rowData['客户描述'] || '',
+            '数量': rowData['数量'] || '',
+            'UOM': rowData['UOM'] || '',
+          },
+          topk,
+          bestKey,
+        };
+
+        // 生成可选关键词（用于 AND 筛选 + 控制“隐藏未命中行”开关显示）
+        const src = `${rowData['商品代码'] || ''} ${rowData['客户描述'] || ''}`;
+        const seen = new Set();
+        this.plKeywords = [];
+        src.split(/[\s,，;；]+/).forEach(w => {
+          w = w.trim();
+          if (w.length > 1 && !seen.has(w.toUpperCase())) {
+            seen.add(w.toUpperCase());
+            this.plKeywords.push(w);
+          }
+        });
+        this.plKwSel = []; this.plKwOpen = false; this.priceSearch = '';
+        this.plHideUnmatched = true;
+      } else {
+        this._lvCtx = null;
+        const src = `${rowData['商品代码'] || ''} ${rowData['客户描述'] || ''}`;
+        const seen = new Set();
+        this.plKeywords = [];
+        src.split(/[\s,，;；]+/).forEach(w => {
+          w = w.trim();
+          if (w.length > 1 && !seen.has(w.toUpperCase())) {
+            seen.add(w.toUpperCase());
+            this.plKeywords.push(w);
+          }
+        });
+        this.plKwSel = []; this.plKwOpen = false; this.priceSearch = '';
+      }
       this.activeTab = 'pricelist';
       await new Promise(r => requestAnimationFrame(r));
       await this._loadPriceList();
+      if (this._lvCtx) this._renderLocalVectorPriceListView();
+      else this._doSearch();
       this.priceListCallback = async sel => {
+        if (sel?.__rowType === 'customer') return;
         await this._applyPriceListRow(rowIdx, rowData, sel);
         this.activeTab = 'query';
       };
-      const kw = (rowData['IMPA代码'] || rowData['U8代码'] || rowData['商品代码'] || '')
-                   .replace('未找到', '').trim();
-      if (kw) setTimeout(() => locatePriceList(kw), 150);
+      if (!this._lvCtx) {
+        const kw = (rowData['IMPA代码'] || rowData['U8代码'] || rowData['商品代码'] || '')
+          .replace('未找到', '').trim();
+        if (kw) setTimeout(() => locatePriceList(kw), 150);
+      }
     },
 
     async _applyPriceListRow(rowIdx, old, sel) {
@@ -945,9 +1231,16 @@ function App() {
       this._priceMatchTotal = 0;
       this._priceMatchPos   = 0;
       // 向量模式也重置
-      this.vectorMode       = false;
-      this.isVectorQuerying = false;
+      this.vectorMode            = false;
+      this.isVectorQuerying      = false;
       this.vectorConfirmDlg.open = false;
+      this.localVectorMode       = false;
+      this.isLocalVectorQuerying = false;
+      // 本地向量候选视图及关键词状态重置
+      this._lvCtx    = null;
+      this.plKeywords = [];
+      this.plKwSel    = [];
+      this.plKwOpen   = false;
       if (queryGridApi) {
         queryGridApi.setGridOption('rowData', []);
         queryGridApi.setHeaderNames({});
@@ -967,6 +1260,9 @@ function App() {
       }
     },
 
-    async openDBUpdate() { await window.pywebview.api.open_db_update(); },
+    async openDBUpdate() {
+      this._setFullListProgress(1, this.t('fulllist_progress_ready'), true);
+      await window.pywebview.api.open_db_update();
+    },
   };
 }
